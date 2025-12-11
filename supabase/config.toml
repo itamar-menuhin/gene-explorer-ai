@@ -2,3 +2,6 @@ project_id = "nkshlnzpyzoxhatbblyg"
 
 [functions.recommend-panels]
 verify_jwt = false
+
+[functions.extract-features]
+verify_jwt = false
