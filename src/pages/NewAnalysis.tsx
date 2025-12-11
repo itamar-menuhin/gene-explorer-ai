@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
-  Sparkles, Upload, FileText, ArrowRight, ArrowLeft, 
-  Dna, Clock, BookOpen, ChevronDown, Info, Zap
+  Sparkles, Upload, ArrowRight, ArrowLeft, 
+  Dna, Clock, BookOpen, ChevronDown, Info, Zap, FileText
 } from "lucide-react";
+import { SequenceUpload } from "@/components/sequence/SequenceUpload";
+import { ParseResult } from "@/lib/sequenceParser";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type Step = "hypothesis" | "upload" | "panels" | "configure";
 
@@ -70,13 +75,21 @@ const costBadge = {
 
 export default function NewAnalysis() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user } = useAuth();
   const mode = searchParams.get("mode") || "guided";
   const isGuided = mode === "guided";
 
   const [currentStep, setCurrentStep] = useState<Step>(isGuided ? "hypothesis" : "upload");
   const [hypothesis, setHypothesis] = useState("");
   const [selectedPanels, setSelectedPanels] = useState<string[]>([]);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSequencesParsed = (result: ParseResult) => {
+    setParseResult(result);
+  };
 
   const togglePanel = (panelId: string) => {
     setSelectedPanels(prev => 
@@ -84,6 +97,47 @@ export default function NewAnalysis() {
         ? prev.filter(id => id !== panelId)
         : [...prev, panelId]
     );
+  };
+
+  const handleRunAnalysis = async () => {
+    if (!user) {
+      toast({ variant: "destructive", title: "Please sign in to run analysis" });
+      navigate("/auth");
+      return;
+    }
+
+    if (!parseResult || parseResult.sequences.length === 0) {
+      toast({ variant: "destructive", title: "Please upload sequences first" });
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    const { data, error } = await supabase
+      .from('analyses')
+      .insert({
+        user_id: user.id,
+        name: hypothesis ? hypothesis.slice(0, 50) : `Analysis ${new Date().toLocaleDateString()}`,
+        hypothesis: hypothesis || null,
+        mode: isGuided ? 'guided' : 'manual',
+        sequence_count: parseResult.stats.count,
+        min_length: parseResult.stats.minLength,
+        max_length: parseResult.stats.maxLength,
+        median_length: parseResult.stats.medianLength,
+        selected_panels: selectedPanels,
+        status: 'draft'
+      })
+      .select()
+      .single();
+
+    setIsSubmitting(false);
+
+    if (error) {
+      toast({ variant: "destructive", title: "Failed to create analysis", description: error.message });
+    } else if (data) {
+      toast({ title: "Analysis created", description: "Starting computation..." });
+      navigate(`/analysis/${data.id}`);
+    }
   };
 
   const steps = isGuided 
@@ -176,90 +230,31 @@ export default function NewAnalysis() {
 
         {/* Step: Upload */}
         {currentStep === "upload" && (
-          <Card variant="elevated" className="animate-fade-in">
-            <CardHeader>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
-                  <Upload className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div>
-                  <CardTitle>Upload your sequences</CardTitle>
-                  <CardDescription>FASTA, CSV, or paste directly</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Upload Zone */}
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-ocean-300 hover:bg-ocean-50/30 transition-colors cursor-pointer">
-                <div className="flex flex-col items-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 mb-4">
-                    <FileText className="h-7 w-7 text-slate-500" />
-                  </div>
-                  <p className="font-medium mb-1">Drop files here or click to browse</p>
-                  <p className="text-sm text-muted-foreground">
-                    Supports .fasta, .fa, .csv, .xlsx
-                  </p>
-                </div>
-              </div>
-
-              {/* Or paste */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-3 text-muted-foreground">or paste sequence</span>
-                </div>
-              </div>
-
-              <Textarea 
-                placeholder=">Gene_001&#10;ATGGCTCAATTGAGCGGTCCC..."
-                className="min-h-24 font-mono text-sm"
-              />
-
-              {/* Mock Preview */}
-              <Card variant="default" className="bg-slate-50">
-                <CardContent className="p-4">
-                  <h4 className="font-medium text-sm mb-3">Dataset Preview</h4>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Sequences</p>
-                      <p className="font-semibold text-lg">248</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Min Length</p>
-                      <p className="font-semibold text-lg">420 nt</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Max Length</p>
-                      <p className="font-semibold text-lg">1,500 nt</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex justify-between">
-                {isGuided && (
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => setCurrentStep("hypothesis")}
-                  >
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back
-                  </Button>
-                )}
+          <div className="space-y-6 animate-fade-in">
+            <SequenceUpload onSequencesParsed={handleSequencesParsed} />
+            
+            <div className="flex justify-between pt-4">
+              {isGuided && (
                 <Button 
-                  variant="ocean" 
-                  size="lg"
-                  className="ml-auto"
-                  onClick={() => setCurrentStep("panels")}
+                  variant="ghost" 
+                  onClick={() => setCurrentStep("hypothesis")}
                 >
-                  Continue
-                  <ArrowRight className="h-4 w-4 ml-2" />
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
+              )}
+              <Button 
+                variant="ocean" 
+                size="lg"
+                className="ml-auto"
+                disabled={!parseResult || parseResult.sequences.length === 0}
+                onClick={() => setCurrentStep("panels")}
+              >
+                Continue with {parseResult?.stats.count || 0} sequences
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Step: Panel Selection */}
@@ -443,9 +438,9 @@ export default function NewAnalysis() {
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back
                 </Button>
-                <Button variant="scientific" size="lg">
+                <Button variant="scientific" size="lg" onClick={handleRunAnalysis} disabled={isSubmitting}>
                   <Zap className="h-4 w-4 mr-2" />
-                  Run Analysis
+                  {isSubmitting ? "Creating..." : "Run Analysis"}
                 </Button>
               </div>
             </CardContent>

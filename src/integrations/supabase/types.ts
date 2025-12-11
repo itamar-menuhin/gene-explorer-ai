@@ -14,7 +14,123 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analyses: {
+        Row: {
+          computed_at: string | null
+          created_at: string
+          hypothesis: string | null
+          id: string
+          max_length: number | null
+          median_length: number | null
+          min_length: number | null
+          mode: string
+          name: string
+          selected_panels: string[] | null
+          sequence_count: number | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          computed_at?: string | null
+          created_at?: string
+          hypothesis?: string | null
+          id?: string
+          max_length?: number | null
+          median_length?: number | null
+          min_length?: number | null
+          mode?: string
+          name: string
+          selected_panels?: string[] | null
+          sequence_count?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          computed_at?: string | null
+          created_at?: string
+          hypothesis?: string | null
+          id?: string
+          max_length?: number | null
+          median_length?: number | null
+          min_length?: number | null
+          mode?: string
+          name?: string
+          selected_panels?: string[] | null
+          sequence_count?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          selected_panels: string[] | null
+          step_size: number | null
+          updated_at: string
+          user_id: string
+          window_size: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          selected_panels?: string[] | null
+          step_size?: number | null
+          updated_at?: string
+          user_id: string
+          window_size?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          selected_panels?: string[] | null
+          step_size?: number | null
+          updated_at?: string
+          user_id?: string
+          window_size?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

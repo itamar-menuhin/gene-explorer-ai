@@ -1,8 +1,18 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Dna, Plus, User } from "lucide-react";
+import { Dna, Plus, User, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function Header() {
+  const { user, signOut } = useAuth();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between">
@@ -26,29 +36,47 @@ export function Header() {
             Dashboard
           </Link>
           <Link 
-            to="/templates" 
+            to="/profile?tab=templates" 
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             Templates
-          </Link>
-          <Link 
-            to="/docs" 
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Documentation
           </Link>
         </nav>
 
         <div className="flex items-center gap-3">
           <Button variant="ocean" size="sm" asChild>
-            <Link to="/analysis/new">
+            <Link to="/new-analysis">
               <Plus className="h-4 w-4" />
               New Analysis
             </Link>
           </Button>
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <User className="h-5 w-5" />
-          </Button>
+          
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <User className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link to="/profile" className="cursor-pointer">
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/auth">Sign In</Link>
+            </Button>
+          )}
         </div>
       </div>
     </header>
