@@ -2,95 +2,140 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Ocean-inspired scientific palette */
+    --background: 210 25% 98%;
+    --foreground: 215 25% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 25% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 25% 12%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Deep ocean teal - primary */
+    --primary: 192 70% 35%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Soft slate - secondary */
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 215 25% 20%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted slate tones */
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 15% 50%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Emerald accent - life sciences */
+    --accent: 160 60% 45%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Error/destructive */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 192 70% 35%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Custom tokens */
+    --ocean-50: 192 70% 97%;
+    --ocean-100: 192 65% 92%;
+    --ocean-200: 192 60% 82%;
+    --ocean-300: 192 55% 65%;
+    --ocean-400: 192 65% 48%;
+    --ocean-500: 192 70% 35%;
+    --ocean-600: 192 75% 28%;
+    --ocean-700: 192 78% 22%;
+    --ocean-800: 192 80% 16%;
+    --ocean-900: 192 82% 10%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --emerald-50: 160 60% 96%;
+    --emerald-100: 160 55% 88%;
+    --emerald-200: 160 50% 75%;
+    --emerald-300: 160 55% 58%;
+    --emerald-400: 160 60% 45%;
+    --emerald-500: 160 65% 36%;
+    --emerald-600: 160 70% 28%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    --slate-50: 210 25% 98%;
+    --slate-100: 210 22% 95%;
+    --slate-200: 210 20% 90%;
+    --slate-300: 210 18% 80%;
+    --slate-400: 210 15% 60%;
+    --slate-500: 210 12% 45%;
+    --slate-600: 215 15% 35%;
+    --slate-700: 215 20% 25%;
+    --slate-800: 215 25% 17%;
+    --slate-900: 215 28% 10%;
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    /* Gradients */
+    --gradient-ocean: linear-gradient(135deg, hsl(192 70% 35%), hsl(192 75% 28%));
+    --gradient-emerald: linear-gradient(135deg, hsl(160 60% 45%), hsl(160 65% 36%));
+    --gradient-scientific: linear-gradient(135deg, hsl(192 70% 35%), hsl(160 60% 45%));
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7));
+    --gradient-hero: linear-gradient(180deg, hsl(210 25% 98%) 0%, hsl(192 70% 97%) 50%, hsl(160 60% 96%) 100%);
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(215 25% 12% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(215 25% 12% / 0.07), 0 2px 4px -2px hsl(215 25% 12% / 0.05);
+    --shadow-lg: 0 10px 15px -3px hsl(215 25% 12% / 0.08), 0 4px 6px -4px hsl(215 25% 12% / 0.05);
+    --shadow-xl: 0 20px 25px -5px hsl(215 25% 12% / 0.1), 0 8px 10px -6px hsl(215 25% 12% / 0.05);
+    --shadow-glow: 0 0 40px hsl(192 70% 35% / 0.15);
+    --shadow-emerald-glow: 0 0 30px hsl(160 60% 45% / 0.2);
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215 25% 20%;
+    --sidebar-primary: 192 70% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 20% 96%;
+    --sidebar-accent-foreground: 215 25% 20%;
+    --sidebar-border: 210 20% 92%;
+    --sidebar-ring: 192 70% 35%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 215 28% 8%;
+    --foreground: 210 20% 96%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 215 25% 12%;
+    --card-foreground: 210 20% 96%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 215 25% 12%;
+    --popover-foreground: 210 20% 96%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 192 65% 50%;
+    --primary-foreground: 215 28% 8%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 215 22% 18%;
+    --secondary-foreground: 210 20% 90%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 215 22% 18%;
+    --muted-foreground: 210 15% 55%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 160 55% 50%;
+    --accent-foreground: 215 28% 8%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 215 22% 20%;
+    --input: 215 22% 20%;
+    --ring: 192 65% 50%;
+
+    --sidebar-background: 215 28% 10%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 192 65% 50%;
+    --sidebar-primary-foreground: 215 28% 8%;
+    --sidebar-accent: 215 22% 16%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 215 22% 18%;
+    --sidebar-ring: 192 65% 50%;
   }
 }
 
@@ -100,6 +145,118 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-semibold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/80 backdrop-blur-xl border border-white/20;
+  }
+
+  .glass-card {
+    @apply bg-white/90 backdrop-blur-lg border border-slate-200/50 shadow-lg;
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+  }
+
+  .gradient-ocean {
+    background: var(--gradient-ocean);
+  }
+
+  .gradient-emerald {
+    background: var(--gradient-emerald);
+  }
+
+  .gradient-scientific {
+    background: var(--gradient-scientific);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .shadow-emerald-glow {
+    box-shadow: var(--shadow-emerald-glow);
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-gradient {
+    animation: gradient 8s ease infinite;
+    background-size: 200% 200%;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* DNA helix animation background */
+.dna-pattern {
+  background-image: 
+    radial-gradient(circle at 20% 80%, hsl(192 70% 35% / 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, hsl(160 60% 45% / 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, hsl(192 65% 48% / 0.02) 0%, transparent 30%);
+}
+
+/* Sequence text styling */
+.sequence-text {
+  @apply font-mono text-sm tracking-wider;
+}
+
+.nucleotide-a {
+  @apply text-emerald-600;
+}
+.nucleotide-t {
+  @apply text-orange-500;
+}
+.nucleotide-g {
+  @apply text-primary;
+}
+.nucleotide-c {
+  @apply text-rose-500;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-100 rounded-full;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
 }

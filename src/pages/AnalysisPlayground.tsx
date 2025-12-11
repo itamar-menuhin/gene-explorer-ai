@@ -1,0 +1,438 @@
+import { useState } from "react";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  BarChart3, Download, Share2, BookOpen, Info, 
+  ChevronDown, TrendingUp, Layers, ArrowUpRight
+} from "lucide-react";
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
+  ResponsiveContainer, Area, AreaChart, ReferenceLine, ComposedChart, Bar
+} from "recharts";
+
+// Mock data for visualizations
+const generateProfileData = () => {
+  const data = [];
+  for (let i = 0; i < 100; i++) {
+    const base = 0.5 + Math.sin(i / 10) * 0.15;
+    data.push({
+      position: i * 3,
+      value: base + (Math.random() - 0.5) * 0.2,
+      q95: base + 0.25 + Math.random() * 0.05,
+      q75: base + 0.15 + Math.random() * 0.03,
+      q50: base + Math.random() * 0.02,
+      q25: base - 0.15 - Math.random() * 0.03,
+      q5: base - 0.25 - Math.random() * 0.05,
+    });
+  }
+  return data;
+};
+
+const generateDistributionData = () => {
+  const data = [];
+  for (let i = 0; i < 50; i++) {
+    const x = 0.2 + (i / 50) * 0.6;
+    const height = Math.exp(-Math.pow((x - 0.55) / 0.12, 2) / 2) * 100;
+    data.push({
+      value: x.toFixed(2),
+      count: Math.round(height + Math.random() * 10),
+    });
+  }
+  return data;
+};
+
+const profileData = generateProfileData();
+const distributionData = generateDistributionData();
+
+const features = [
+  { id: "enc", name: "ENC (Effective Number of Codons)", panel: "Codon Usage Bias" },
+  { id: "cai", name: "CAI Score", panel: "Codon Adaptation Index" },
+  { id: "mfe", name: "MFE (Minimum Free Energy)", panel: "mRNA Secondary Structure" },
+  { id: "gc", name: "GC Content", panel: "GC Content Analysis" },
+];
+
+const sequences = [
+  { id: "all", name: "All sequences (248)" },
+  { id: "gene_001", name: "GENE_001 - Stress response factor" },
+  { id: "gene_002", name: "GENE_002 - Heat shock protein" },
+  { id: "gene_003", name: "GENE_003 - Translation elongation" },
+];
+
+export default function AnalysisPlayground() {
+  const [selectedFeature, setSelectedFeature] = useState("cai");
+  const [selectedSequence, setSelectedSequence] = useState("all");
+
+  const currentFeature = features.find(f => f.id === selectedFeature);
+
+  return (
+    <AppLayout>
+      <div className="container py-6">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-2xl font-display font-bold">Stress Response Codon Analysis</h1>
+              <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                Completed
+              </Badge>
+            </div>
+            <p className="text-muted-foreground">
+              "Highly expressed genes under stress have distinctive codon usage"
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm">
+              <Share2 className="h-4 w-4 mr-2" />
+              Share
+            </Button>
+            <Button variant="ocean" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats Bar */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          {[
+            { label: "Sequences", value: "248" },
+            { label: "Panels Computed", value: "4" },
+            { label: "Features Available", value: "12" },
+            { label: "Runtime", value: "3m 24s" },
+          ].map((stat) => (
+            <Card key={stat.label} variant="glass">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">{stat.label}</p>
+                <p className="text-xl font-semibold">{stat.value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Main Content */}
+        <div className="grid lg:grid-cols-[320px_1fr] gap-6">
+          {/* Sidebar - Feature Selection */}
+          <div className="space-y-4">
+            <Card variant="elevated">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  Feature Selection
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Feature</label>
+                  <Select value={selectedFeature} onValueChange={setSelectedFeature}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {features.map((feature) => (
+                        <SelectItem key={feature.id} value={feature.id}>
+                          <div className="flex flex-col items-start">
+                            <span>{feature.name}</span>
+                            <span className="text-xs text-muted-foreground">{feature.panel}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Sequence</label>
+                  <Select value={selectedSequence} onValueChange={setSelectedSequence}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sequences.map((seq) => (
+                        <SelectItem key={seq.id} value={seq.id}>
+                          {seq.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Feature Info Card */}
+            <Card variant="ocean">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  About this Feature
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                <div>
+                  <h4 className="font-medium mb-1">{currentFeature?.name}</h4>
+                  <p className="text-muted-foreground">
+                    The Codon Adaptation Index measures how well a gene's codon usage matches 
+                    the codon usage of highly expressed reference genes. Higher values indicate 
+                    better adaptation for efficient translation.
+                  </p>
+                </div>
+
+                <div className="bg-ocean-100/50 rounded-lg p-3 border border-ocean-200">
+                  <p className="text-ocean-800">
+                    <strong>Relevance:</strong> CAI is a strong predictor of gene expression levels 
+                    and translation efficiency, directly relevant to your hypothesis about stress genes.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <BookOpen className="h-4 w-4" />
+                  <a href="#" className="hover:text-foreground transition-colors flex items-center gap-1">
+                    Sharp & Li, 1987
+                    <ArrowUpRight className="h-3 w-3" />
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Visualization Area */}
+          <div className="space-y-6">
+            <Tabs defaultValue="profile" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="profile" className="gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Position Profile
+                </TabsTrigger>
+                <TabsTrigger value="distribution" className="gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Distribution
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="profile">
+                <Card variant="elevated">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Per-Position Profile</CardTitle>
+                        <CardDescription>
+                          {selectedSequence === "all" 
+                            ? "Quantile bands across all sequences" 
+                            : "Individual sequence profile with quantile bands"}
+                        </CardDescription>
+                      </div>
+                      <Button variant="ghost" size="sm">
+                        <ChevronDown className="h-4 w-4 mr-1" />
+                        Options
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={profileData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                          <defs>
+                            <linearGradient id="quantile95" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#0891b2" stopOpacity={0.15} />
+                              <stop offset="100%" stopColor="#0891b2" stopOpacity={0.05} />
+                            </linearGradient>
+                            <linearGradient id="quantile75" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#0891b2" stopOpacity={0.25} />
+                              <stop offset="100%" stopColor="#0891b2" stopOpacity={0.1} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                          <XAxis 
+                            dataKey="position" 
+                            tickLine={false}
+                            axisLine={{ stroke: "#cbd5e1" }}
+                            tick={{ fill: "#64748b", fontSize: 11 }}
+                          />
+                          <YAxis 
+                            tickLine={false}
+                            axisLine={{ stroke: "#cbd5e1" }}
+                            tick={{ fill: "#64748b", fontSize: 11 }}
+                            domain={[0, 1]}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: "#fff",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: "8px",
+                              boxShadow: "0 4px 6px -1px rgba(0,0,0,0.07)"
+                            }}
+                            labelFormatter={(value) => `Position ${value} nt`}
+                          />
+                          
+                          {/* Outer quantile band (5-95%) */}
+                          <Area 
+                            type="monotone" 
+                            dataKey="q95" 
+                            stroke="none" 
+                            fill="url(#quantile95)"
+                            isAnimationActive={false}
+                          />
+                          
+                          {/* Inner quantile band (25-75%) */}
+                          <Area 
+                            type="monotone" 
+                            dataKey="q75" 
+                            stroke="none" 
+                            fill="url(#quantile75)"
+                            isAnimationActive={false}
+                          />
+                          
+                          {/* Median line */}
+                          <Line 
+                            type="monotone" 
+                            dataKey="q50" 
+                            stroke="#0891b2" 
+                            strokeWidth={2.5}
+                            dot={false}
+                            isAnimationActive={false}
+                          />
+                          
+                          {/* Selected sequence line (if individual) */}
+                          {selectedSequence !== "all" && (
+                            <Line 
+                              type="monotone" 
+                              dataKey="value" 
+                              stroke="#10b981" 
+                              strokeWidth={2}
+                              dot={false}
+                              isAnimationActive={false}
+                            />
+                          )}
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                    
+                    {/* Legend */}
+                    <div className="flex items-center justify-center gap-6 mt-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-0.5 bg-ocean-500" />
+                        <span>Median (50%)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-ocean-500/20 rounded" />
+                        <span>25-75% quantile</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-ocean-500/10 rounded" />
+                        <span>5-95% quantile</span>
+                      </div>
+                      {selectedSequence !== "all" && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-0.5 bg-emerald-500" />
+                          <span>Selected sequence</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="distribution">
+                <Card variant="elevated">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Global Distribution</CardTitle>
+                        <CardDescription>
+                          Distribution of {currentFeature?.name} across all sequences
+                        </CardDescription>
+                      </div>
+                      <Button variant="ghost" size="sm">
+                        <ChevronDown className="h-4 w-4 mr-1" />
+                        Options
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={distributionData}>
+                          <defs>
+                            <linearGradient id="distGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="hsl(160 60% 45%)" stopOpacity={0.4} />
+                              <stop offset="100%" stopColor="hsl(160 60% 45%)" stopOpacity={0.1} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(210 20% 90%)" />
+                          <XAxis 
+                            dataKey="value" 
+                            tickLine={false}
+                            axisLine={{ stroke: "hsl(210 20% 80%)" }}
+                            tick={{ fill: "hsl(215 15% 50%)", fontSize: 12 }}
+                            label={{ value: "CAI Score", position: "insideBottom", offset: -5, fill: "hsl(215 15% 50%)" }}
+                          />
+                          <YAxis 
+                            tickLine={false}
+                            axisLine={{ stroke: "hsl(210 20% 80%)" }}
+                            tick={{ fill: "hsl(215 15% 50%)", fontSize: 12 }}
+                            label={{ value: "Count", angle: -90, position: "insideLeft", fill: "hsl(215 15% 50%)" }}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: "hsl(0 0% 100%)",
+                              border: "1px solid hsl(210 20% 90%)",
+                              borderRadius: "8px",
+                              boxShadow: "0 4px 6px -1px hsl(215 25% 12% / 0.07)"
+                            }}
+                            formatter={(value: number) => [value, "Sequences"]}
+                            labelFormatter={(value) => `CAI: ${value}`}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="count" 
+                            stroke="hsl(160 60% 45%)" 
+                            strokeWidth={2}
+                            fill="url(#distGradient)"
+                          />
+                          
+                          {/* Marker for selected sequence */}
+                          {selectedSequence !== "all" && (
+                            <ReferenceLine 
+                              x="0.62" 
+                              stroke="hsl(192 70% 35%)" 
+                              strokeWidth={2}
+                              strokeDasharray="5 5"
+                              label={{ 
+                                value: "Selected", 
+                                position: "top",
+                                fill: "hsl(192 70% 35%)",
+                                fontSize: 12
+                              }}
+                            />
+                          )}
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t border-slate-200">
+                      {[
+                        { label: "Mean", value: "0.548" },
+                        { label: "Median", value: "0.562" },
+                        { label: "Std Dev", value: "0.089" },
+                        { label: "Range", value: "0.31 - 0.79" },
+                      ].map((stat) => (
+                        <div key={stat.label} className="text-center">
+                          <p className="text-sm text-muted-foreground">{stat.label}</p>
+                          <p className="font-semibold font-mono">{stat.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
