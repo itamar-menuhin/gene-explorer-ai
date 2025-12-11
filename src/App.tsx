@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import NewAnalysis from "./pages/NewAnalysis";
 import AnalysisPlayground from "./pages/AnalysisPlayground";
+import SharedAnalysis from "./pages/SharedAnalysis";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/new-analysis" element={<NewAnalysis />} />
             <Route path="/analysis/new" element={<NewAnalysis />} />
             <Route path="/analysis/:id" element={<AnalysisPlayground />} />
+            <Route path="/shared/:token" element={<SharedAnalysis />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
