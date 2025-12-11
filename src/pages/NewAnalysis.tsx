@@ -19,6 +19,8 @@ import { usePanelRecommendations, PanelRecommendation } from "@/hooks/usePanelRe
 import { SaveTemplateDialog } from "@/components/analysis/SaveTemplateDialog";
 import { LoadTemplateDialog } from "@/components/analysis/LoadTemplateDialog";
 import { Template } from "@/hooks/useTemplates";
+import { WindowConfigPanel } from "@/components/analysis/WindowConfigPanel";
+import { FEATURE_PANELS, type WindowConfig, type FeaturePanelConfig } from "@/types/featureExtraction";
 
 type Step = "hypothesis" | "upload" | "panels" | "configure";
 
@@ -91,6 +93,11 @@ export default function NewAnalysis() {
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiRecommendations, setAiRecommendations] = useState<PanelRecommendation[]>([]);
+  const [windowConfig, setWindowConfig] = useState<WindowConfig>({
+    enabled: false,
+    windowSize: 100,
+    stepSize: 10,
+  });
   
   const { getRecommendations, loading: aiLoading } = usePanelRecommendations();
 
@@ -491,31 +498,27 @@ export default function NewAnalysis() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Window Configuration */}
+              <WindowConfigPanel
+                config={windowConfig}
+                onChange={setWindowConfig}
+                maxSequenceLength={parseResult?.stats.maxLength || 10000}
+              />
+
+              {/* Selected Panels Summary */}
               <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-medium">Window Configuration</h4>
-                  <Button variant="ghost" size="sm">
-                    <ChevronDown className="h-4 w-4 mr-1" />
-                    Advanced
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Window Size</p>
-                    <p className="font-semibold">45 nt</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Step Size</p>
-                    <p className="font-semibold">3 nt</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Early Region</p>
-                    <p className="font-semibold">100 steps</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Late Region</p>
-                    <p className="font-semibold">50 steps</p>
-                  </div>
+                <h4 className="font-medium mb-3">Selected Panels ({selectedPanels.length})</h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedPanels.map(panelId => {
+                    const panel = FEATURE_PANELS.find(p => p.id === panelId);
+                    return panel ? (
+                      <Badge key={panelId} variant="secondary">
+                        {panel.name}
+                        {windowConfig.enabled && !panel.supportsWindowed && (
+                          <span className="ml-1 text-amber-600">(global only)</span>
+                        )}
+                      </Badge>
+                    ) : null;
+                  })}
                 </div>
               </div>
 
@@ -528,9 +531,12 @@ export default function NewAnalysis() {
                     </div>
                     <div>
                       <p className="font-medium">Estimated Runtime</p>
-                      <p className="text-2xl font-display font-bold text-emerald-700">2-5 minutes</p>
+                      <p className="text-2xl font-display font-bold text-emerald-700">
+                        {windowConfig.enabled ? '5-15' : '1-3'} minutes
+                      </p>
                       <p className="text-sm text-muted-foreground">
-                        248 sequences × {selectedPanels.length} panels
+                        {parseResult?.stats.count || 0} sequences × {selectedPanels.length} panels
+                        {windowConfig.enabled && ` (windowed: ${windowConfig.windowSize}bp / ${windowConfig.stepSize}bp step)`}
                       </p>
                     </div>
                   </div>
