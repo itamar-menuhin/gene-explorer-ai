@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,15 +7,19 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  BarChart3, Download, Share2, BookOpen, Info, 
-  ChevronDown, TrendingUp, Layers, ArrowUpRight
+  BarChart3, Download, BookOpen, Info, 
+  ChevronDown, TrendingUp, Layers, ArrowUpRight, Play
 } from "lucide-react";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, Area, AreaChart, ReferenceLine, ComposedChart, Bar
 } from "recharts";
 import { ExportDialog } from "@/components/analysis/ExportDialog";
+import { ShareAnalysisDialog } from "@/components/analysis/ShareAnalysisDialog";
+import { ComputationProgress } from "@/components/analysis/ComputationProgress";
+import { useComputationProgress } from "@/hooks/useComputationProgress";
 import { generateMockFeatureData, getAllFeatureNames, FeatureData } from "@/lib/csvExport";
+import { supabase } from "@/integrations/supabase/client";
 
 // Mock data for visualizations
 const generateProfileData = () => {
@@ -65,8 +70,13 @@ const sequences = [
 ];
 
 export default function AnalysisPlayground() {
+  const { id } = useParams<{ id: string }>();
   const [selectedFeature, setSelectedFeature] = useState("cai");
   const [selectedSequence, setSelectedSequence] = useState("all");
+  const [analysisName, setAnalysisName] = useState("Stress Response Codon Analysis");
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [status, setStatus] = useState<'draft' | 'computing' | 'completed'>('completed');
+  const [showProgress, setShowProgress] = useState(false);
 
   const currentFeature = features.find(f => f.id === selectedFeature);
   
@@ -87,6 +97,54 @@ export default function AnalysisPlayground() {
     { title: 'Mfold web server for nucleic acid folding', authors: 'Zuker M.', year: 2003, journal: 'Nucleic Acids Res', doi: '10.1093/nar/gkg595' }
   ];
 
+  const { state: progressState, startComputation, stopComputation, resetComputation } = 
+    useComputationProgress(248, selectedPanels);
+
+  // Fetch analysis data
+  useEffect(() => {
+    async function fetchAnalysis() {
+      if (!id) return;
+      const { data } = await supabase
+        .from('analyses')
+        .select('name, share_token, status')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (data) {
+        setAnalysisName(data.name);
+        setShareToken(data.share_token);
+        setStatus(data.status as 'draft' | 'computing' | 'completed');
+      }
+    }
+    fetchAnalysis();
+  }, [id]);
+
+  const handleStartComputation = async () => {
+    setShowProgress(true);
+    setStatus('computing');
+    
+    if (id) {
+      await supabase.from('analyses').update({ status: 'computing' }).eq('id', id);
+    }
+    
+    const completedPanels = await startComputation();
+    
+    if (id) {
+      await supabase.from('analyses')
+        .update({ 
+          status: 'completed', 
+          computed_at: new Date().toISOString(),
+          selected_panels: completedPanels 
+        })
+        .eq('id', id);
+    }
+    setStatus('completed');
+  };
+
+  const handleStopComputation = () => {
+    stopComputation();
+  };
+
   return (
     <AppLayout>
       <div className="container py-6">
@@ -94,9 +152,17 @@ export default function AnalysisPlayground() {
         <div className="flex items-start justify-between mb-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-display font-bold">Stress Response Codon Analysis</h1>
-              <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                Completed
+              <h1 className="text-2xl font-display font-bold">{analysisName}</h1>
+              <Badge 
+                variant="outline" 
+                className={status === 'completed' 
+                  ? "bg-emerald-100 text-emerald-700 border-emerald-200" 
+                  : status === 'computing'
+                  ? "bg-amber-100 text-amber-700 border-amber-200"
+                  : "bg-slate-100 text-slate-700 border-slate-200"
+                }
+              >
+                {status === 'completed' ? 'Completed' : status === 'computing' ? 'Computing' : 'Draft'}
               </Badge>
             </div>
             <p className="text-muted-foreground">
@@ -104,23 +170,47 @@ export default function AnalysisPlayground() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm">
-              <Share2 className="h-4 w-4 mr-2" />
-              Share
-            </Button>
+            {status === 'draft' && (
+              <Button variant="ocean" size="sm" onClick={handleStartComputation}>
+                <Play className="h-4 w-4 mr-2" />
+                Run Computation
+              </Button>
+            )}
+            {id && (
+              <ShareAnalysisDialog 
+                analysisId={id}
+                analysisName={analysisName}
+                currentShareToken={shareToken}
+                onShareUpdated={setShareToken}
+              />
+            )}
             <ExportDialog
               featureData={featureData}
               featureNames={featureNames}
-              analysisName="Stress_Response_Codon_Analysis"
+              analysisName={analysisName.replace(/\s+/g, '_')}
               citations={mockCitations}
             >
-              <Button variant="ocean" size="sm">
+              <Button variant="outline" size="sm">
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>
             </ExportDialog>
           </div>
         </div>
+
+        {/* Computation Progress */}
+        {showProgress && (
+          <div className="mb-6">
+            <ComputationProgress 
+              state={progressState}
+              onStop={handleStopComputation}
+              onReset={() => {
+                resetComputation();
+                setShowProgress(false);
+              }}
+            />
+          </div>
+        )}
 
         {/* Stats Bar */}
         <div className="grid grid-cols-4 gap-4 mb-6">

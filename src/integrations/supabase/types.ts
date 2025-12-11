@@ -27,6 +27,7 @@ export type Database = {
           name: string
           selected_panels: string[] | null
           sequence_count: number | null
+          share_token: string | null
           status: string
           updated_at: string
           user_id: string
@@ -43,6 +44,7 @@ export type Database = {
           name: string
           selected_panels?: string[] | null
           sequence_count?: number | null
+          share_token?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -59,6 +61,7 @@ export type Database = {
           name?: string
           selected_panels?: string[] | null
           sequence_count?: number | null
+          share_token?: string | null
           status?: string
           updated_at?: string
           user_id?: string
