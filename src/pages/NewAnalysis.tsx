@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,13 +8,17 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Sparkles, Upload, ArrowRight, ArrowLeft, 
-  Dna, Clock, BookOpen, ChevronDown, Info, Zap, FileText
+  Dna, Clock, BookOpen, ChevronDown, Info, Zap, FileText, Loader2
 } from "lucide-react";
 import { SequenceUpload } from "@/components/sequence/SequenceUpload";
 import { ParseResult } from "@/lib/sequenceParser";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { usePanelRecommendations, PanelRecommendation } from "@/hooks/usePanelRecommendations";
+import { SaveTemplateDialog } from "@/components/analysis/SaveTemplateDialog";
+import { LoadTemplateDialog } from "@/components/analysis/LoadTemplateDialog";
+import { Template } from "@/hooks/useTemplates";
 
 type Step = "hypothesis" | "upload" | "panels" | "configure";
 
@@ -86,6 +90,9 @@ export default function NewAnalysis() {
   const [selectedPanels, setSelectedPanels] = useState<string[]>([]);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [aiRecommendations, setAiRecommendations] = useState<PanelRecommendation[]>([]);
+  
+  const { getRecommendations, loading: aiLoading } = usePanelRecommendations();
 
   const handleSequencesParsed = (result: ParseResult) => {
     setParseResult(result);
@@ -98,6 +105,33 @@ export default function NewAnalysis() {
         : [...prev, panelId]
     );
   };
+
+  const handleLoadTemplate = (template: Template) => {
+    setSelectedPanels(template.selected_panels);
+    toast({ title: 'Template loaded', description: `Applied "${template.name}"` });
+  };
+
+  const handleGetRecommendations = async () => {
+    const recs = await getRecommendations(
+      hypothesis,
+      parseResult?.stats.count,
+      parseResult?.stats.minLength,
+      parseResult?.stats.maxLength
+    );
+    setAiRecommendations(recs);
+    // Auto-select recommended panels with score >= 7
+    const autoSelect = recs.filter(r => r.relevanceScore >= 7).map(r => r.panelId);
+    if (autoSelect.length > 0) {
+      setSelectedPanels(prev => [...new Set([...prev, ...autoSelect])]);
+    }
+  };
+
+  // Fetch AI recommendations when entering panels step in guided mode
+  useEffect(() => {
+    if (currentStep === 'panels' && isGuided && hypothesis && aiRecommendations.length === 0) {
+      handleGetRecommendations();
+    }
+  }, [currentStep, isGuided, hypothesis]);
 
   const handleRunAnalysis = async () => {
     if (!user) {
@@ -262,27 +296,109 @@ export default function NewAnalysis() {
           <div className="space-y-6 animate-fade-in">
             <Card variant="elevated">
               <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-ocean-100">
-                    <Dna className="h-5 w-5 text-ocean-600" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-ocean-100">
+                      <Dna className="h-5 w-5 text-ocean-600" />
+                    </div>
+                    <div>
+                      <CardTitle>
+                        {isGuided ? "Recommended Panels" : "Select Panels"}
+                      </CardTitle>
+                      <CardDescription>
+                        {isGuided 
+                          ? "Based on your hypothesis, we recommend these feature panels"
+                          : "Choose which feature panels to compute"}
+                      </CardDescription>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle>
-                      {isGuided ? "Recommended Panels" : "Select Panels"}
-                    </CardTitle>
-                    <CardDescription>
-                      {isGuided 
-                        ? "Based on your hypothesis, we recommend these feature panels"
-                        : "Choose which feature panels to compute"}
-                    </CardDescription>
+                  <div className="flex gap-2">
+                    <LoadTemplateDialog onLoad={handleLoadTemplate} />
+                    <SaveTemplateDialog selectedPanels={selectedPanels} />
                   </div>
                 </div>
               </CardHeader>
             </Card>
 
-            {/* Panel List */}
+            {/* AI Loading State */}
+            {aiLoading && isGuided && (
+              <Card variant="ocean" className="animate-pulse">
+                <CardContent className="p-6 flex items-center gap-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-ocean-600" />
+                  <div>
+                    <p className="font-medium text-ocean-800">Analyzing your hypothesis...</p>
+                    <p className="text-sm text-ocean-600">Finding the most relevant feature panels</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Panel List - Use AI recommendations if available, else mock panels */}
             <div className="space-y-4">
-              {mockPanels.map((panel, index) => (
+              {(isGuided && aiRecommendations.length > 0 ? 
+                aiRecommendations.map((rec, index) => {
+                  const panel = mockPanels.find(p => p.id === rec.panelId) || {
+                    id: rec.panelId,
+                    name: rec.panel?.name || rec.panelId,
+                    description: rec.panel?.description || '',
+                    features: rec.panel?.features || [],
+                    citations: 500,
+                    cost: 'medium' as const
+                  };
+                  return (
+                    <Card 
+                      key={panel.id}
+                      variant={selectedPanels.includes(panel.id) ? "ocean" : "interactive"}
+                      className="opacity-0 animate-fade-in"
+                      style={{ animationDelay: `${index * 75}ms` }}
+                      onClick={() => togglePanel(panel.id)}
+                    >
+                      <CardContent className="p-5">
+                        <div className="flex items-start gap-4">
+                          <Checkbox 
+                            checked={selectedPanels.includes(panel.id)}
+                            className="mt-1"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="font-semibold">{panel.name}</h3>
+                              <Badge variant="outline" className="bg-ocean-100 text-ocean-700">
+                                <Sparkles className="h-3 w-3 mr-1" />
+                                {rec.relevanceScore}/10 relevance
+                              </Badge>
+                              <Badge variant="outline" className={costBadge[panel.cost].className}>
+                                <Clock className="h-3 w-3 mr-1" />
+                                {costBadge[panel.cost].label}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-3">
+                              {panel.description}
+                            </p>
+                            
+                            <div className="bg-ocean-50/50 rounded-lg p-3 mb-3 border border-ocean-100">
+                              <div className="flex gap-2 text-sm">
+                                <Sparkles className="h-4 w-4 text-ocean-600 shrink-0 mt-0.5" />
+                                <p className="text-ocean-800">{rec.relevanceExplanation}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              {panel.features.map(feature => (
+                                <span 
+                                  key={feature}
+                                  className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md"
+                                >
+                                  {feature}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              : mockPanels.map((panel, index) => (
                 <Card 
                   key={panel.id}
                   variant={selectedPanels.includes(panel.id) ? "ocean" : "interactive"}
@@ -335,7 +451,7 @@ export default function NewAnalysis() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )))}
             </div>
 
             <div className="flex justify-between pt-4">

@@ -13,6 +13,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, Area, AreaChart, ReferenceLine, ComposedChart, Bar
 } from "recharts";
+import { ExportDialog } from "@/components/analysis/ExportDialog";
+import { generateMockFeatureData, getAllFeatureNames, FeatureData } from "@/lib/csvExport";
 
 // Mock data for visualizations
 const generateProfileData = () => {
@@ -67,6 +69,23 @@ export default function AnalysisPlayground() {
   const [selectedSequence, setSelectedSequence] = useState("all");
 
   const currentFeature = features.find(f => f.id === selectedFeature);
+  
+  // Generate mock data for export
+  const mockSequences = sequences.slice(1).map((s, i) => ({
+    id: s.id,
+    name: s.name.split(' - ')[0],
+    sequence: 'ATGC'.repeat(100),
+    length: 400 + i * 50
+  }));
+  const selectedPanels = ['codon_usage', 'cai', 'mrna_folding', 'gc_content'];
+  const featureData = generateMockFeatureData(mockSequences, selectedPanels);
+  const featureNames = getAllFeatureNames(selectedPanels);
+  
+  const mockCitations = [
+    { title: 'The effective number of codons used in a gene', authors: 'Wright F.', year: 1990, journal: 'Gene', doi: '10.1016/0378-1119(90)90491-9' },
+    { title: 'The codon adaptation index', authors: 'Sharp PM, Li WH', year: 1987, journal: 'Nucleic Acids Res', doi: '10.1093/nar/15.3.1281' },
+    { title: 'Mfold web server for nucleic acid folding', authors: 'Zuker M.', year: 2003, journal: 'Nucleic Acids Res', doi: '10.1093/nar/gkg595' }
+  ];
 
   return (
     <AppLayout>
@@ -89,10 +108,17 @@ export default function AnalysisPlayground() {
               <Share2 className="h-4 w-4 mr-2" />
               Share
             </Button>
-            <Button variant="ocean" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
+            <ExportDialog
+              featureData={featureData}
+              featureNames={featureNames}
+              analysisName="Stress_Response_Codon_Analysis"
+              citations={mockCitations}
+            >
+              <Button variant="ocean" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </ExportDialog>
           </div>
         </div>
 

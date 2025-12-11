@@ -1,1 +1,4 @@
 project_id = "nkshlnzpyzoxhatbblyg"
+
+[functions.recommend-panels]
+verify_jwt = false
