@@ -1,0 +1,155 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    GENE EXPLORER AI - ARCHITECTURE                       ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            USER BROWSER                                  │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │  React Frontend (TypeScript)                                    │    │
+│  │  ────────────────────────────────                               │    │
+│  │  • Pages: Dashboard, NewAnalysis, AnalysisPlayground           │    │
+│  │  • Components: SequenceUpload, FeaturePanelSelector             │    │
+│  │  • Hooks: useFeatureExtraction, usePanelRecommendations        │    │
+│  │  • Hosted on: Lovable.dev                                       │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└───────────────────────────┬─────────────────────────────────────────────┘
+                            │
+                            │ Supabase Client SDK (supabase.functions.invoke)
+                            │
+┌───────────────────────────▼─────────────────────────────────────────────┐
+│                    SUPABASE PLATFORM                                     │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃  PostgreSQL Database                                              ┃  │
+│  ┃  ────────────────────                                             ┃  │
+│  ┃  Tables: profiles, analyses, templates                            ┃  │
+│  ┃  RLS Policies: User-level data isolation                          ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                          │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃  Edge Functions (Deno Runtime)                                    ┃  │
+│  ┃  ──────────────────────────────                                   ┃  │
+│  ┃                                                                    ┃  │
+│  ┃  ┌──────────────────────────────────────────────────────────┐   ┃  │
+│  ┃  │  extract-features                                         │   ┃  │
+│  ┃  │  ────────────────                                         │   ┃  │
+│  ┃  │  1. Receives feature extraction request                  │   ┃  │
+│  ┃  │  2. Checks: PYTHON_BACKEND_URL set?                      │   ┃  │
+│  ┃  │     ├─ YES → Forward to Python Backend (HTTP POST)       │   ┃  │
+│  ┃  │     └─ NO  → Use local JS fallback (basic features)      │   ┃  │
+│  ┃  │  3. Returns results to frontend                           │   ┃  │
+│  ┃  └──────────────────────────────────────────────────────────┘   ┃  │
+│  ┃                                                                    ┃  │
+│  ┃  ┌──────────────────────────────────────────────────────────┐   ┃  │
+│  ┃  │  recommend-panels (optional)                              │   ┃  │
+│  ┃  │  ───────────────────────                                  │   ┃  │
+│  ┃  │  AI-powered panel recommendations based on hypothesis     │   ┃  │
+│  ┃  └──────────────────────────────────────────────────────────┘   ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+└───────────────────────────┬─────────────────────────────────────────────┘
+                            │
+                            │ HTTP POST (if PYTHON_BACKEND_URL is set)
+                            │ to: https://your-backend.railway.app/extract-features
+                            │
+┌───────────────────────────▼─────────────────────────────────────────────┐
+│          PYTHON BACKEND (FastAPI) - OPTIONAL BUT RECOMMENDED             │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃  FastAPI Application (backend/main.py)                            ┃  │
+│  ┃  ──────────────────────────────────────                           ┃  │
+│  ┃                                                                    ┃  │
+│  ┃  Endpoints:                                                        ┃  │
+│  ┃  • POST /extract-features  → Main feature extraction              ┃  │
+│  ┃  • GET  /health            → Health check                         ┃  │
+│  ┃  • GET  /panels            → List available panels                ┃  │
+│  ┃                                                                    ┃  │
+│  ┃  Feature Extractors:                                               ┃  │
+│  ┃  • SequenceFeatureExtractor  → GC content, length, composition    ┃  │
+│  ┃  • ChemicalFeatureExtractor  → Molecular weight, properties       ┃  │
+│  ┃  • CUBFeatureExtractor       → Codon usage bias (ENC, RCBS, etc.) ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                          │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃  Feature Engineering Modules (BioPython)                          ┃  │
+│  ┃  ────────────────────────────────────────                         ┃  │
+│  ┃                                                                    ┃  │
+│  ┃  • sequence.py        → Sequence objects, translation             ┃  │
+│  ┃  • chemical.py        → Chemical/physical properties              ┃  │
+│  ┃  • cub.py             → Codon usage calculations                  ┃  │
+│  ┃  • disorder.py        → Protein disorder prediction               ┃  │
+│  ┃  • biotite_structure_features.py  → 3D structure analysis         ┃  │
+│  ┃  • jaspar_motif_features.py       → Motif search                  ┃  │
+│  ┃  • dna_structure.py   → DNA structural properties                 ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                          │
+│  Deploy to: Railway, Render, Docker, Kubernetes, or any hosting         │
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         INTEGRATION FLOW                                 ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+SCENARIO 1: WITH PYTHON BACKEND
+─────────────────────────────────────────────────────────────────────────
+
+User uploads sequence → Frontend → Edge Function → Python Backend
+                                                         │
+                                                         ├─ BioPython
+                                                         ├─ Scientific libs
+                                                         └─ Full features
+                                                              │
+User sees results   ←  Frontend  ←  Edge Function  ←────────┘
+
+
+SCENARIO 2: WITHOUT PYTHON BACKEND (Fallback)
+─────────────────────────────────────────────────────────────────────────
+
+User uploads sequence → Frontend → Edge Function → Local JS computation
+                                                         │
+                                                         └─ Basic features
+                                                              │
+User sees results   ←  Frontend  ←  Edge Function  ←────────┘
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    HOW TO ENABLE PYTHON BACKEND                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+Step 1: Deploy Python Backend
+─────────────────────────────────────────────────────────────────────────
+Deploy backend/main.py to:
+  • Railway (recommended, fastest)
+  • Render (free tier available)
+  • Docker Compose (self-hosted)
+  • Any platform that supports Docker
+
+You'll get a URL like: https://your-backend.railway.app
+
+
+Step 2: Configure Supabase Edge Function
+─────────────────────────────────────────────────────────────────────────
+In Supabase Dashboard:
+  1. Go to: Edge Functions → extract-features → Settings
+  2. Add environment secret:
+     Name:  PYTHON_BACKEND_URL
+     Value: https://your-backend.railway.app
+  3. Redeploy edge function
+
+
+Step 3: Test
+─────────────────────────────────────────────────────────────────────────
+curl https://your-backend.railway.app/health
+# Should return: {"status":"healthy","version":"1.0.0"}
+
+Then use your app normally - it will automatically use the Python backend!
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          KEY BENEFITS                                    ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+✓ Zero code changes required - just set environment variable
+✓ Gradual migration - can switch back to fallback anytime
+✓ Scalable - run multiple Python backend instances
+✓ Flexible - works with or without Python backend
+✓ Production-ready - used by real bioinformatics applications
+
