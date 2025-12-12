@@ -97,6 +97,7 @@ export default function NewAnalysis() {
     enabled: false,
     windowSize: 45,
     stepSize: 3,
+    fromStart: true,
     fromEnd: false,
   });
   

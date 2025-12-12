@@ -46,12 +46,12 @@ export function WindowConfigPanel({
   };
 
   // Calculate estimated number of windows for a typical sequence
-  const effectiveLength = config.endIndex && config.startIndex 
-    ? config.endIndex - config.startIndex 
-    : maxSequenceLength;
-  const estimatedWindows = config.enabled && config.windowSize > 0 && config.stepSize > 0
+  const effectiveStart = config.startIndex ?? 0;
+  const effectiveEnd = config.endIndex ?? maxSequenceLength;
+  const effectiveLength = Math.max(0, effectiveEnd - effectiveStart);
+  const estimatedWindows = config.enabled && config.windowSize > 0 && config.stepSize > 0 && effectiveLength >= config.windowSize
     ? Math.max(1, Math.floor((effectiveLength - config.windowSize) / config.stepSize) + 1)
-    : 1;
+    : effectiveLength < config.windowSize ? 0 : 1;
 
   return (
     <Card className={config.enabled ? 'ring-1 ring-primary/50' : ''}>
@@ -172,22 +172,35 @@ export function WindowConfigPanel({
             </div>
           </div>
 
-          {/* From End Toggle */}
-          <div className="flex items-center justify-between p-2 rounded bg-muted/30">
-            <div>
-              <Label htmlFor="from-end" className="text-xs font-medium">
-                Window from End
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Start sliding windows from the end of sequence
-              </p>
+          {/* Window Direction - Both Start and End */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Window Directions</Label>
+            <div className="flex items-center justify-between p-2 rounded bg-muted/30">
+              <div>
+                <Label htmlFor="from-start" className="text-xs">
+                  From Start (5' → 3')
+                </Label>
+              </div>
+              <Switch
+                id="from-start"
+                checked={config.fromStart !== false}
+                onCheckedChange={(checked) => onChange({ ...config, fromStart: checked })}
+                disabled={disabled}
+              />
             </div>
-            <Switch
-              id="from-end"
-              checked={config.fromEnd}
-              onCheckedChange={handleFromEndChange}
-              disabled={disabled}
-            />
+            <div className="flex items-center justify-between p-2 rounded bg-muted/30">
+              <div>
+                <Label htmlFor="from-end" className="text-xs">
+                  From End (3' → 5')
+                </Label>
+              </div>
+              <Switch
+                id="from-end"
+                checked={config.fromEnd}
+                onCheckedChange={handleFromEndChange}
+                disabled={disabled}
+              />
+            </div>
           </div>
 
           <div className="p-2 rounded bg-muted/50 text-xs text-muted-foreground">
@@ -198,10 +211,14 @@ export function WindowConfigPanel({
                 : 'None'}
             </p>
             <p className="mt-1">
-              <strong>Est. windows per sequence:</strong> ~{estimatedWindows.toLocaleString()}
+              <strong>Region:</strong> {effectiveStart}-{effectiveEnd} bp ({effectiveLength.toLocaleString()} bp)
             </p>
             <p className="mt-1">
-              <strong>Direction:</strong> {config.fromEnd ? '← From end (3\' to 5\')' : '→ From start (5\' to 3\')'}
+              <strong>Est. windows:</strong> {estimatedWindows === 0 ? 'Window too large for region' : `~${estimatedWindows.toLocaleString()} per direction`}
+            </p>
+            <p className="mt-1">
+              <strong>Directions:</strong>{' '}
+              {config.fromStart !== false && config.fromEnd ? 'Both (start & end)' : config.fromEnd ? '← From end only' : '→ From start only'}
             </p>
           </div>
         </CardContent>

@@ -11,6 +11,7 @@ export interface WindowConfig {
   enabled: boolean;
   windowSize: number;
   stepSize: number;
+  fromStart: boolean;
   fromEnd: boolean;
   startIndex?: number;
   endIndex?: number;
