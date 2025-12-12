@@ -132,10 +132,10 @@ export default function AnalysisPlayground() {
           console.error('Error fetching analysis:', error);
         } else if (data) {
           setRealAnalysisData(data);
-          if (data.name) setAnalysisName(data.name);
-          if (data.hypothesis) setHypothesis(data.hypothesis);
-          if (data.share_token) setShareToken(data.share_token);
-          if (data.status) setStatus(data.status);
+          setAnalysisName(data?.name ?? 'Untitled Analysis');
+          setHypothesis(data?.hypothesis ?? null);
+          setShareToken(data?.share_token ?? null);
+          setStatus(data?.status ?? 'draft');
         }
       } catch (err) {
         console.error('Failed to fetch analysis:', err);

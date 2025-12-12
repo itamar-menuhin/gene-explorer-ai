@@ -37,11 +37,21 @@ interface Panel {
 
 // Convert FEATURE_PANELS to Panel format for display
 const convertToDisplayPanels = (): Panel[] => {
+  // Citation counts for different panel types (approximate from literature)
+  const citationMap: Record<string, number> = {
+    'sequence': 2100,
+    'chemical': 1500,
+    'codonUsage': 1240,
+    'disorder': 890,
+    'structure': 650,
+    'motif': 500,
+  };
+  
   return FEATURE_PANELS.map(panel => ({
     id: panel.id,
     name: panel.name,
     description: panel.description,
-    citations: 500, // Default value
+    citations: citationMap[panel.id] || 500,
     cost: panel.category === 'structure' || panel.category === 'regulatory' ? 'high' as const : 'low' as const,
     features: panel.features.map(f => f.name),
   }));

@@ -28,12 +28,17 @@ const isValidNucleotide = (seq: string): boolean => {
 };
 
 // Validate sequence by type (exported for use in other components)
+// Note: This is more strict than isValidNucleotide() - it only accepts standard bases
+// isValidNucleotide() allows ambiguous bases (N, R, Y, etc.) which are valid in FASTA files
+// Use this function for pre-submission validation to catch definitely invalid sequences
 export function validateSequence(sequence: string, type: 'nucleotide' | 'amino_acid'): boolean {
   const seq = sequence.toUpperCase().replace(/\s/g, '');
   
   if (type === 'nucleotide') {
+    // Strict validation - only standard bases (ACGTU)
     return /^[ACGTU]+$/.test(seq);
   } else {
+    // Amino acid validation - standard one-letter codes plus stop codon (*)
     return /^[ACDEFGHIKLMNPQRSTVWY*]+$/.test(seq);
   }
 }
