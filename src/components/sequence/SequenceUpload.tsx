@@ -41,10 +41,7 @@ export const SequenceUpload: React.FC<SequenceUploadProps> = ({ onSequencesParse
     setIsProcessing(false);
   }, [pastedSequence, onSequencesParsed]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
+  const processFile = async (file: File) => {
     setUploadedFile(file);
     setParseResult(null);
     
@@ -62,6 +59,32 @@ export const SequenceUpload: React.FC<SequenceUploadProps> = ({ onSequencesParse
       setColumns(cols);
       setSequenceColumn('');
       setNameColumn('');
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    
+    const ext = file.name.toLowerCase().split('.').pop();
+    const validExtensions = ['fasta', 'fa', 'fna', 'txt', 'csv', 'xlsx', 'xls'];
+    
+    if (validExtensions.includes(ext || '')) {
+      await processFile(file);
     }
   };
 
@@ -133,7 +156,11 @@ export const SequenceUpload: React.FC<SequenceUploadProps> = ({ onSequencesParse
           
           <TabsContent value="upload" className="space-y-4 mt-4">
             {!uploadedFile ? (
-              <div className="border-2 border-dashed border-border/50 rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+              <div 
+                className="border-2 border-dashed border-border/50 rounded-lg p-8 text-center hover:border-primary/50 transition-colors"
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              >
                 <input
                   type="file"
                   accept=".fasta,.fa,.fna,.txt,.csv,.xlsx,.xls"

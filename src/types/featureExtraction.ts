@@ -11,6 +11,9 @@ export interface WindowConfig {
   enabled: boolean;
   windowSize: number;
   stepSize: number;
+  fromEnd: boolean;
+  startIndex?: number;
+  endIndex?: number;
 }
 
 export interface FeatureConfig {
