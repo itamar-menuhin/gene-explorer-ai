@@ -98,12 +98,47 @@ export default function AnalysisPlayground() {
   const [selectedFeature, setSelectedFeature] = useState("cai");
   const [selectedSequence, setSelectedSequence] = useState("all");
   const [analysisName, setAnalysisName] = useState("Stress Response Codon Analysis");
+  const [hypothesis, setHypothesis] = useState<string | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(null);
-  const [status, setStatus] = useState<'draft' | 'computing' | 'completed'>('completed');
+  const [status, setStatus] = useState<'draft' | 'computing' | 'completed'>('draft');
   const [showProgress, setShowProgress] = useState(false);
-  const [computationId, setComputationId] = useState<number>(Date.now());
+  const [computationId, setComputationId] = useState<number | null>(null);
 
   const currentFeature = features.find(f => f.id === selectedFeature);
+
+  // Generate dynamic relevance explanation based on feature and hypothesis
+  const getFeatureRelevance = (featureId?: string, panel?: string, hypothesis?: string | null): string => {
+    if (!featureId || !hypothesis) {
+      return "Run an analysis with a hypothesis to see feature-specific relevance.";
+    }
+    const relevanceMap: Record<string, Record<string, string>> = {
+      enc: {
+        default: "ENC measures codon bias diversity, indicating translational selection pressure.",
+        expression: "Lower ENC values in your sequences may indicate stronger selection for efficient translation under stress.",
+        stress: "Stress-responsive genes often show distinct ENC patterns reflecting adaptation to rapid protein production.",
+      },
+      cai: {
+        default: "CAI indicates how well codons match highly expressed gene patterns.",
+        expression: "High CAI values suggest optimization for rapid, efficient translation matching your expression hypothesis.",
+        stress: "Stress genes with high CAI may be pre-adapted for quick upregulation during cellular stress.",
+      },
+      mfe: {
+        default: "MFE predicts RNA secondary structure stability affecting translation.",
+        expression: "Stable 5' structures (negative MFE) can slow ribosome initiation, affecting expression levels.",
+        stress: "Stress-responsive mRNAs may have specific structural features for regulatory control.",
+      },
+      gc: {
+        default: "GC content affects thermal stability and codon usage patterns.",
+        expression: "GC-rich regions correlate with specific codon usage biases affecting translation.",
+        stress: "GC content gradients may indicate regulatory regions important for stress response.",
+      },
+    };
+    const featureMap = relevanceMap[featureId] || { default: "This feature provides insights into sequence characteristics." };
+    const lowerHypothesis = hypothesis.toLowerCase();
+    if (lowerHypothesis.includes('stress')) return featureMap.stress || featureMap.default;
+    if (lowerHypothesis.includes('express')) return featureMap.expression || featureMap.default;
+    return featureMap.default;
+  };
   
   // Generate mock data for export - regenerated on each computation
   const mockSequences = sequences.slice(1).map((s, i) => ({
@@ -114,9 +149,9 @@ export default function AnalysisPlayground() {
   }));
   const selectedPanels = ['codon_usage', 'cai', 'mrna_folding', 'gc_content'];
   
-  // Use computationId as a seed for reproducible but unique results
+  // Use computationId as a seed for reproducible but unique results - null until computed
   const featureData = useMemo(() => {
-    // Reset random seed based on computation ID to get fresh data
+    if (computationId === null) return [];
     return generateMockFeatureData(mockSequences, selectedPanels);
   }, [computationId]);
   
@@ -137,14 +172,19 @@ export default function AnalysisPlayground() {
       if (!id) return;
       const { data } = await supabase
         .from('analyses')
-        .select('name, share_token, status')
+        .select('name, share_token, status, hypothesis, computed_at')
         .eq('id', id)
         .maybeSingle();
       
       if (data) {
         setAnalysisName(data.name);
         setShareToken(data.share_token);
+        setHypothesis(data.hypothesis);
         setStatus(data.status as 'draft' | 'computing' | 'completed');
+        // Only set computationId if there's an actual computation
+        if (data.computed_at) {
+          setComputationId(new Date(data.computed_at).getTime());
+        }
       }
     }
     fetchAnalysis();
@@ -330,8 +370,7 @@ export default function AnalysisPlayground() {
 
                 <div className="bg-ocean-100/50 rounded-lg p-3 border border-ocean-200">
                   <p className="text-ocean-800">
-                    <strong>Relevance:</strong> This feature helps analyze gene expression patterns 
-                    and translation efficiency relevant to your hypothesis.
+                    <strong>Relevance:</strong> {getFeatureRelevance(currentFeature?.id, currentFeature?.panel, hypothesis)}
                   </p>
                 </div>
 
@@ -348,6 +387,27 @@ export default function AnalysisPlayground() {
 
           {/* Main Visualization Area */}
           <div className="space-y-6">
+            {computationId === null ? (
+              <Card variant="elevated">
+                <CardContent className="p-12 text-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center">
+                      <Play className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-medium mb-1">No Results Yet</h3>
+                      <p className="text-muted-foreground text-sm">
+                        Click "Run Computation" to analyze your sequences and view results.
+                      </p>
+                    </div>
+                    <Button variant="ocean" onClick={handleStartComputation}>
+                      <Play className="h-4 w-4 mr-2" />
+                      Run Computation
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
             <Tabs defaultValue="profile" className="w-full">
               <TabsList className="mb-4">
                 <TabsTrigger value="profile" className="gap-2">
@@ -578,6 +638,7 @@ export default function AnalysisPlayground() {
                 </Card>
               </TabsContent>
             </Tabs>
+            )}
           </div>
         </div>
       </div>
