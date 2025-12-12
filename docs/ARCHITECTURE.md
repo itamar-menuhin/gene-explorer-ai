@@ -1,6 +1,6 @@
 # Gene Explorer AI - Complete Architecture Guide
 
-> **Last Updated:** December 2025  
+> **Last Updated:** December 2024  
 > **Version:** 1.0.0
 
 ## Table of Contents

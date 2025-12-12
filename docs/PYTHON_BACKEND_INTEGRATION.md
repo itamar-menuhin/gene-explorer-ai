@@ -42,7 +42,7 @@ npm install
 npm run dev
 ```
 
-Visit `http://localhost:8080` and test feature extraction!
+The frontend will run on `http://localhost:8080` (configured in vite.config.ts). Visit this URL and test feature extraction!
 
 ---
 
@@ -260,7 +260,7 @@ You could bypass the edge function and call Python backend directly from fronten
 3. **Clone repository:**
    ```bash
    cd /opt
-   git clone https://github.com/itamar-menuhin/gene-explorer-ai.git
+   git clone <YOUR_REPOSITORY_URL>
    cd gene-explorer-ai/backend
    ```
 
