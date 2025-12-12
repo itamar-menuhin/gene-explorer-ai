@@ -27,6 +27,17 @@ const isValidNucleotide = (seq: string): boolean => {
   return /^[ATCGUNRYWSMKHBVD\-\s]+$/i.test(seq);
 };
 
+// Validate sequence by type (exported for use in other components)
+export function validateSequence(sequence: string, type: 'nucleotide' | 'amino_acid'): boolean {
+  const seq = sequence.toUpperCase().replace(/\s/g, '');
+  
+  if (type === 'nucleotide') {
+    return /^[ACGTU]+$/.test(seq);
+  } else {
+    return /^[ACDEFGHIKLMNPQRSTVWY*]+$/.test(seq);
+  }
+}
+
 // Clean sequence (remove whitespace, newlines)
 const cleanSequence = (seq: string): string => {
   return seq.replace(/[\s\n\r]/g, '').toUpperCase();
