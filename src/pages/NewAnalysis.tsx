@@ -177,7 +177,10 @@ export default function NewAnalysis() {
       toast({ variant: "destructive", title: "Failed to create analysis", description: error.message });
     } else if (data) {
       toast({ title: "Analysis created", description: "Starting computation..." });
-      navigate(`/analysis/${data.id}`);
+      // Pass AI recommendations via state to avoid recalculation
+      navigate(`/analysis/${data.id}`, { 
+        state: { aiRecommendations: aiRecommendations } 
+      });
     }
   };
 
