@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PanelRecommendation } from "@/hooks/usePanelRecommendations";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -95,6 +96,7 @@ const sequences = [
 
 export default function AnalysisPlayground() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const [selectedFeature, setSelectedFeature] = useState("cai");
   const [selectedSequence, setSelectedSequence] = useState("all");
   const [analysisName, setAnalysisName] = useState("Stress Response Codon Analysis");
@@ -103,31 +105,39 @@ export default function AnalysisPlayground() {
   const [status, setStatus] = useState<'draft' | 'computing' | 'completed'>('draft');
   const [showProgress, setShowProgress] = useState(false);
   const [computationId, setComputationId] = useState<number | null>(null);
+  
+  // Cached AI recommendations from guided mode
+  const [cachedRecommendations, setCachedRecommendations] = useState<PanelRecommendation[]>([]);
 
   const currentFeature = features.find(f => f.id === selectedFeature);
 
-  // Generate dynamic relevance explanation based on feature and hypothesis
+  // Get relevance from cached AI recommendations
   const getFeatureRelevance = (featureId?: string, panel?: string, hypothesis?: string | null): string => {
-    if (!featureId || !hypothesis) {
+    if (!featureId) {
+      return "Select a feature to see relevance information.";
+    }
+    
+    // First try to find cached AI recommendation for this panel
+    if (cachedRecommendations.length > 0) {
+      // Map feature id to panel id
+      const featureToPanelMap: Record<string, string> = {
+        enc: 'codon_usage',
+        cai: 'cai',
+        mfe: 'mrna_folding',
+        gc: 'gc_content',
+      };
+      const panelId = featureToPanelMap[featureId];
+      const recommendation = cachedRecommendations.find(r => r.panelId === panelId);
+      if (recommendation) {
+        return recommendation.relevanceExplanation;
+      }
+    }
+    
+    if (!hypothesis) {
       return "Run an analysis with a hypothesis to see feature-specific relevance.";
     }
     
-    // Create hypothesis-specific relevance that references the actual hypothesis
-    const hypothesisSnippet = hypothesis.length > 50 ? hypothesis.slice(0, 50) + '...' : hypothesis;
-    
-    const relevanceTemplates: Record<string, (h: string) => string> = {
-      enc: (h) => `Given your hypothesis "${hypothesisSnippet}", ENC values can reveal whether your sequences show codon usage bias consistent with ${h.toLowerCase().includes('stress') ? 'stress-responsive' : h.toLowerCase().includes('express') ? 'highly expressed' : 'selected'} genes. Lower ENC indicates stronger bias.`,
-      cai: (h) => `For your hypothesis "${hypothesisSnippet}", CAI measures how well codon usage matches ${h.toLowerCase().includes('expression') || h.toLowerCase().includes('express') ? 'high-expression reference genes' : 'optimal translation efficiency'}. High CAI supports predictions of efficient protein production.`,
-      mfe: (h) => `Regarding "${hypothesisSnippet}", MFE reveals mRNA structure stability. ${h.toLowerCase().includes('stress') ? 'Stress-responsive genes may have specific 5\' structures affecting rapid translation initiation.' : 'Negative MFE in 5\' regions can affect ribosome access and translation rates.'}`,
-      gc: (h) => `In context of "${hypothesisSnippet}", GC content correlates with ${h.toLowerCase().includes('thermophil') ? 'thermal stability' : h.toLowerCase().includes('codon') ? 'synonymous codon choices' : 'structural and regulatory properties'} that may explain observed expression patterns.`,
-    };
-    
-    const template = relevanceTemplates[featureId];
-    if (template) {
-      return template(hypothesis);
-    }
-    
-    return `This feature may provide insights relevant to your hypothesis: "${hypothesisSnippet}"`;
+    return `This feature may provide insights relevant to your hypothesis.`;
   };
   
   // Generate mock data for export - regenerated on each computation
@@ -137,13 +147,29 @@ export default function AnalysisPlayground() {
     sequence: 'ATGC'.repeat(100),
     length: 400 + i * 50
   }));
-  const selectedPanels = ['codon_usage', 'cai', 'mrna_folding', 'gc_content'];
+  
+  // Sort panels by cached recommendation relevance (highest first)
+  const selectedPanels = useMemo(() => {
+    const basePanels = ['codon_usage', 'cai', 'mrna_folding', 'gc_content'];
+    if (cachedRecommendations.length === 0) return basePanels;
+    
+    // Sort based on recommendation order (already sorted by relevance from guided mode)
+    const recommendedOrder = cachedRecommendations
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .map(r => r.panelId);
+    
+    // Return panels in recommendation order, keeping any that aren't in recommendations at the end
+    return [
+      ...recommendedOrder.filter(p => basePanels.includes(p)),
+      ...basePanels.filter(p => !recommendedOrder.includes(p))
+    ];
+  }, [cachedRecommendations]);
   
   // Use computationId as a seed for reproducible but unique results - null until computed
   const featureData = useMemo(() => {
     if (computationId === null) return [];
     return generateMockFeatureData(mockSequences, selectedPanels);
-  }, [computationId]);
+  }, [computationId, selectedPanels]);
   
   const featureNames = getAllFeatureNames(selectedPanels);
   
@@ -155,6 +181,14 @@ export default function AnalysisPlayground() {
 
   const { state: progressState, startComputation, stopComputation, resetComputation } = 
     useComputationProgress(248, selectedPanels);
+
+  // Load cached recommendations from navigation state
+  useEffect(() => {
+    const state = location.state as { aiRecommendations?: PanelRecommendation[] } | null;
+    if (state?.aiRecommendations) {
+      setCachedRecommendations(state.aiRecommendations);
+    }
+  }, [location.state]);
 
   // Fetch analysis data
   useEffect(() => {
