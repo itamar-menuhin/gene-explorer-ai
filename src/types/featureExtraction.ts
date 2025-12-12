@@ -7,14 +7,17 @@ export interface SequenceInput {
   annotations?: Record<string, string>;
 }
 
-export interface WindowConfig {
+export interface SingleWindowConfig {
   enabled: boolean;
   windowSize: number;
   stepSize: number;
-  fromStart: boolean;
-  fromEnd: boolean;
   startIndex?: number;
   endIndex?: number;
+}
+
+export interface WindowConfig {
+  start: SingleWindowConfig;
+  end: SingleWindowConfig;
 }
 
 export interface FeatureConfig {

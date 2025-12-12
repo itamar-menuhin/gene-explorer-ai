@@ -3,38 +3,33 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { SlidersHorizontal } from 'lucide-react';
-import type { WindowConfig } from '@/types/featureExtraction';
+import { ArrowLeft } from 'lucide-react';
+import type { SingleWindowConfig } from '@/types/featureExtraction';
 
-interface WindowConfigPanelProps {
-  config: WindowConfig;
-  onChange: (config: WindowConfig) => void;
+interface EndWindowConfigPanelProps {
+  config: SingleWindowConfig;
+  onChange: (config: SingleWindowConfig) => void;
   maxSequenceLength?: number;
   disabled?: boolean;
 }
 
-export function WindowConfigPanel({
+export function EndWindowConfigPanel({
   config,
   onChange,
   maxSequenceLength = 10000,
   disabled = false,
-}: WindowConfigPanelProps) {
+}: EndWindowConfigPanelProps) {
   const handleToggle = (enabled: boolean) => {
     onChange({ ...config, enabled });
   };
 
   const handleWindowSizeChange = (value: number) => {
-    // Ensure step size doesn't exceed window size
     const newStepSize = Math.min(config.stepSize, value);
     onChange({ ...config, windowSize: value, stepSize: newStepSize });
   };
 
   const handleStepSizeChange = (value: number) => {
     onChange({ ...config, stepSize: value });
-  };
-
-  const handleFromEndChange = (fromEnd: boolean) => {
-    onChange({ ...config, fromEnd });
   };
 
   const handleStartIndexChange = (value: number) => {
@@ -45,7 +40,6 @@ export function WindowConfigPanel({
     onChange({ ...config, endIndex: value || undefined });
   };
 
-  // Calculate estimated number of windows for a typical sequence
   const effectiveStart = config.startIndex ?? 0;
   const effectiveEnd = config.endIndex ?? maxSequenceLength;
   const effectiveLength = Math.max(0, effectiveEnd - effectiveStart);
@@ -58,8 +52,8 @@ export function WindowConfigPanel({
       <CardHeader className="p-4 pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-sm font-medium">Windowed Analysis</CardTitle>
+            <ArrowLeft className="h-4 w-4 text-amber-600" />
+            <CardTitle className="text-sm font-medium">From End (3' → 5')</CardTitle>
           </div>
           <Switch
             checked={config.enabled}
@@ -68,7 +62,7 @@ export function WindowConfigPanel({
           />
         </div>
         <CardDescription className="text-xs">
-          Compute features in sliding windows across sequences
+          Sliding windows from the end of each sequence
         </CardDescription>
       </CardHeader>
 
@@ -76,16 +70,12 @@ export function WindowConfigPanel({
         <CardContent className="p-4 pt-2 space-y-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="window-size" className="text-xs">
-                Window Size
-              </Label>
-              <span className="text-xs text-muted-foreground">
-                {config.windowSize} bp
-              </span>
+              <Label htmlFor="end-window-size" className="text-xs">Window Size</Label>
+              <span className="text-xs text-muted-foreground">{config.windowSize} bp</span>
             </div>
             <div className="flex gap-2 items-center">
               <Slider
-                id="window-size"
+                id="end-window-size"
                 min={10}
                 max={1000}
                 step={1}
@@ -108,16 +98,12 @@ export function WindowConfigPanel({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="step-size" className="text-xs">
-                Step Size
-              </Label>
-              <span className="text-xs text-muted-foreground">
-                {config.stepSize} bp
-              </span>
+              <Label htmlFor="end-step-size" className="text-xs">Step Size</Label>
+              <span className="text-xs text-muted-foreground">{config.stepSize} bp</span>
             </div>
             <div className="flex gap-2 items-center">
               <Slider
-                id="step-size"
+                id="end-step-size"
                 min={1}
                 max={Math.min(config.windowSize, 500)}
                 step={1}
@@ -138,33 +124,28 @@ export function WindowConfigPanel({
             </div>
           </div>
 
-          {/* Start/End Indices */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="start-index" className="text-xs">
-                Start Index (optional)
-              </Label>
+              <Label htmlFor="end-start-index" className="text-xs">Start Offset</Label>
               <Input
-                id="start-index"
+                id="end-start-index"
                 type="number"
                 value={config.startIndex ?? ''}
                 onChange={(e) => handleStartIndexChange(parseInt(e.target.value))}
-                placeholder="0"
+                placeholder="0 (from end)"
                 min={0}
                 className="h-8 text-xs"
                 disabled={disabled}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="end-index" className="text-xs">
-                End Index (optional)
-              </Label>
+              <Label htmlFor="end-end-index" className="text-xs">End Offset</Label>
               <Input
-                id="end-index"
+                id="end-end-index"
                 type="number"
                 value={config.endIndex ?? ''}
                 onChange={(e) => handleEndIndexChange(parseInt(e.target.value))}
-                placeholder="Sequence end"
+                placeholder="Sequence length"
                 min={config.startIndex || 0}
                 className="h-8 text-xs"
                 disabled={disabled}
@@ -172,54 +153,12 @@ export function WindowConfigPanel({
             </div>
           </div>
 
-          {/* Window Direction - Both Start and End */}
-          <div className="space-y-2">
-            <Label className="text-xs font-medium">Window Directions</Label>
-            <div className="flex items-center justify-between p-2 rounded bg-muted/30">
-              <div>
-                <Label htmlFor="from-start" className="text-xs">
-                  From Start (5' → 3')
-                </Label>
-              </div>
-              <Switch
-                id="from-start"
-                checked={config.fromStart !== false}
-                onCheckedChange={(checked) => onChange({ ...config, fromStart: checked })}
-                disabled={disabled}
-              />
-            </div>
-            <div className="flex items-center justify-between p-2 rounded bg-muted/30">
-              <div>
-                <Label htmlFor="from-end" className="text-xs">
-                  From End (3' → 5')
-                </Label>
-              </div>
-              <Switch
-                id="from-end"
-                checked={config.fromEnd}
-                onCheckedChange={handleFromEndChange}
-                disabled={disabled}
-              />
-            </div>
-          </div>
-
           <div className="p-2 rounded bg-muted/50 text-xs text-muted-foreground">
-            <p>
-              <strong>Overlap:</strong>{' '}
-              {config.stepSize < config.windowSize
-                ? `${config.windowSize - config.stepSize} bp (${Math.round((1 - config.stepSize / config.windowSize) * 100)}%)`
-                : 'None'}
-            </p>
-            <p className="mt-1">
-              <strong>Region:</strong> {effectiveStart}-{effectiveEnd} bp ({effectiveLength.toLocaleString()} bp)
-            </p>
-            <p className="mt-1">
-              <strong>Est. windows:</strong> {estimatedWindows === 0 ? 'Window too large for region' : `~${estimatedWindows.toLocaleString()} per direction`}
-            </p>
-            <p className="mt-1">
-              <strong>Directions:</strong>{' '}
-              {config.fromStart !== false && config.fromEnd ? 'Both (start & end)' : config.fromEnd ? '← From end only' : '→ From start only'}
-            </p>
+            <p><strong>Overlap:</strong> {config.stepSize < config.windowSize
+              ? `${config.windowSize - config.stepSize} bp (${Math.round((1 - config.stepSize / config.windowSize) * 100)}%)`
+              : 'None'}</p>
+            <p className="mt-1"><strong>Region:</strong> Last {effectiveEnd - effectiveStart} bp from end</p>
+            <p className="mt-1"><strong>Est. windows:</strong> {estimatedWindows === 0 ? 'Window too large' : `~${estimatedWindows.toLocaleString()}`}</p>
           </div>
         </CardContent>
       )}
