@@ -394,8 +394,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ../feature_engineering /app/feature_engineering
 COPY main.py .
 
-EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8080
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 ```
 
 #### **docker-compose.yml** - Local Development
@@ -407,11 +407,11 @@ services:
       context: ..
       dockerfile: backend/Dockerfile
     ports:
-      - "8000:8000"
+      - "8080:8080"
     volumes:
       - ../feature_engineering:/app/feature_engineering:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
 ```
 
 ---
@@ -783,45 +783,27 @@ const { data: panelsData } = useQuery(['panels'], async () => {
 });
 ```
 
-### 3. **Fix Python Backend Dockerfile Path** (5 minutes)
+### 3. **Fix Python Backend Port Consistency** ✅ COMPLETED
 
-**Problem**: Dockerfile tries to copy from `../feature_engineering` which may fail
+**Problem**: Dockerfile and docker-compose used port 8000, but main.py uses port 8080
 
-**Fix**:
-```dockerfile
-# In backend/Dockerfile, line 13
-# Change:
-COPY ../feature_engineering /app/feature_engineering
-# To:
-COPY ./feature_engineering /app/feature_engineering
+**Fix**: Updated all files to consistently use port 8080:
+- Dockerfile now uses PORT environment variable with 8080 default
+- docker-compose.yml updated to use 8080
+- Supports Railway/Render's dynamic $PORT variable
+- All documentation updated to reference correct port
 
-# Then build from repository root:
-# docker build -f backend/Dockerfile -t gene-explorer-backend .
-```
+### 4. **Add Missing Environment Variable Documentation** ✅ COMPLETED
 
-### 4. **Add Missing Environment Variable Documentation** (10 minutes)
+**Problem**: README doesn't clearly document environment variables
 
-**Problem**: README doesn't explain environment variables
+**Fix**: Created `.env.example` file in repository root with all required environment variables documented.
 
-**Fix**: Add to README.md:
-```markdown
-## Environment Variables
-
-Create a `.env` file:
-
-```bash
-# Supabase (frontend)
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
-
-# Python Backend URL (optional)
-# If not set, uses local computation fallback
-VITE_PYTHON_BACKEND_URL=https://your-backend.railway.app
-
-# Python Backend (set in Lovable Cloud / Supabase)
-PYTHON_BACKEND_URL=https://your-backend.railway.app
-```
-```
+The file includes:
+- Supabase configuration (required)
+- Python backend URL (optional)
+- Example production URLs
+- Clear instructions for both local and production environments
 
 ### 5. **Improve Error Messages** (20 minutes)
 
@@ -1004,7 +986,7 @@ server {
     server_name api.your-domain.com;
     
     location / {
-        proxy_pass http://localhost:8000;
+        proxy_pass http://localhost:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -1051,7 +1033,7 @@ spec:
       - name: api
         image: ghcr.io/itamar-menuhin/gene-explorer-backend:latest
         ports:
-        - containerPort: 8000
+        - containerPort: 8080
         resources:
           requests:
             memory: "512Mi"
@@ -1062,7 +1044,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 8000
+            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 30
 ---
@@ -1076,7 +1058,7 @@ spec:
   ports:
   - protocol: TCP
     port: 80
-    targetPort: 8000
+    targetPort: 8080
   type: LoadBalancer
 ```
 

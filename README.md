@@ -10,7 +10,7 @@ An AI-powered bioinformatics platform for analyzing genetic sequences with advan
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+This project is built with [Lovable](https://lovable.dev) and can be edited through the platform or locally.
 
 ## How can I edit this code?
 
@@ -18,7 +18,7 @@ There are several ways of editing your application.
 
 **Use Lovable**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Simply visit your Lovable Project and start prompting.
 
 Changes made via Lovable will be committed automatically to this repo.
 
@@ -99,7 +99,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-The backend will run on `http://localhost:8080`
+The backend will run on `http://localhost:8080` by default
 
 ### Environment Variables
 
@@ -110,8 +110,9 @@ Create a `.env` file in the project root:
 VITE_SUPABASE_URL=your-supabase-url
 VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
 
-# Python Backend URL (optional)
+# Python Backend URL (optional, for local development)
 # If not set, uses local computation fallback
+# For production, set this to your deployed backend URL
 VITE_PYTHON_BACKEND_URL=http://localhost:8080
 ```
 
@@ -149,7 +150,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for complete details.
 
 ### Frontend Deployment
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Simply open your Lovable project and click on Share -> Publish.
 
 ### Python Backend Deployment
 
@@ -157,10 +158,11 @@ The Python backend can be deployed to various platforms. See [docs/PYTHON_BACKEN
 
 **Quick Deploy Options:**
 
-1. **Railway** (Recommended, ~5 minutes)
+1. **Railway** (Recommended, ~5 minutes) ✅ *Successfully deployed*
    - Connect GitHub repo
    - Railway auto-detects Dockerfile
    - Get URL and set `PYTHON_BACKEND_URL` in Supabase
+   - See example: https://railway.com/project/e27d711a-0387-4c88-9776-27fe3f84ebd3
 
 2. **Render** (Free tier available)
    - Connect GitHub repo

@@ -42,7 +42,7 @@ npm install
 npm run dev
 ```
 
-The frontend will run on `http://localhost:8080` (configured in vite.config.ts). Visit this URL and test feature extraction!
+The frontend will run on `http://localhost:5173` (Vite's default port). Visit this URL and test feature extraction!
 
 ---
 
@@ -138,6 +138,8 @@ You could bypass the edge function and call Python backend directly from fronten
 ### Option 1: Railway (Fastest)
 
 **Time to deploy:** ~5 minutes
+
+> ✅ **Note:** This project has been successfully deployed to Railway. See the deployment at: https://railway.com/project/e27d711a-0387-4c88-9776-27fe3f84ebd3
 
 **Steps:**
 
@@ -290,7 +292,7 @@ You could bypass the edge function and call Python backend directly from fronten
        server_name api.yourdomain.com;
        
        location / {
-           proxy_pass http://localhost:8000;
+           proxy_pass http://localhost:8080;
            proxy_set_header Host $host;
            proxy_set_header X-Real-IP $remote_addr;
            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -444,7 +446,7 @@ REFERENCE_SET_PATH=/path/to/reference-sets/
 services:
   feature-api:
     environment:
-      - PORT=8000
+      - PORT=8080
       - LOG_LEVEL=DEBUG
 ```
 
