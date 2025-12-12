@@ -42,7 +42,7 @@ npm install
 npm run dev
 ```
 
-The frontend will run on `http://localhost:5173` (Vite's default port). Visit this URL and test feature extraction!
+The frontend will run on `http://localhost:8080` (configured in vite.config.ts). Visit this URL and test feature extraction!
 
 ---
 
