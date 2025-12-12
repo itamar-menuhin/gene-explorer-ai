@@ -211,12 +211,12 @@ export const SequenceUpload: React.FC<SequenceUploadProps> = ({ onSequencesParse
                     
                     <div className="space-y-2">
                       <Label>Name Column (optional)</Label>
-                      <Select value={nameColumn} onValueChange={setNameColumn}>
+                      <Select value={nameColumn || "__none__"} onValueChange={(val) => setNameColumn(val === "__none__" ? "" : val)}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select column for sequence names" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="__none__">None</SelectItem>
                           {columns.filter(c => c !== sequenceColumn).map(col => (
                             <SelectItem key={col} value={col}>{col}</SelectItem>
                           ))}
