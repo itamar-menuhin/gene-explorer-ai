@@ -19,8 +19,9 @@ import { usePanelRecommendations, PanelRecommendation } from "@/hooks/usePanelRe
 import { SaveTemplateDialog } from "@/components/analysis/SaveTemplateDialog";
 import { LoadTemplateDialog } from "@/components/analysis/LoadTemplateDialog";
 import { Template } from "@/hooks/useTemplates";
-import { WindowConfigPanel } from "@/components/analysis/WindowConfigPanel";
-import { FEATURE_PANELS, type WindowConfig, type FeaturePanelConfig } from "@/types/featureExtraction";
+import { StartWindowConfigPanel } from "@/components/analysis/StartWindowConfigPanel";
+import { EndWindowConfigPanel } from "@/components/analysis/EndWindowConfigPanel";
+import { FEATURE_PANELS, type WindowConfig, type SingleWindowConfig, type FeaturePanelConfig } from "@/types/featureExtraction";
 
 type Step = "hypothesis" | "upload" | "panels" | "configure";
 
@@ -94,11 +95,8 @@ export default function NewAnalysis() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiRecommendations, setAiRecommendations] = useState<PanelRecommendation[]>([]);
   const [windowConfig, setWindowConfig] = useState<WindowConfig>({
-    enabled: false,
-    windowSize: 45,
-    stepSize: 3,
-    fromStart: true,
-    fromEnd: false,
+    start: { enabled: false, windowSize: 45, stepSize: 3 },
+    end: { enabled: false, windowSize: 45, stepSize: 3 },
   });
   
   const { getRecommendations, loading: aiLoading } = usePanelRecommendations();
@@ -342,10 +340,10 @@ export default function NewAnalysis() {
               </Card>
             )}
 
-            {/* Panel List - Use AI recommendations if available, else mock panels */}
+            {/* Panel List - Use AI recommendations sorted by relevance if available, else mock panels */}
             <div className="space-y-4">
               {(isGuided && aiRecommendations.length > 0 ? 
-                aiRecommendations.map((rec, index) => {
+                [...aiRecommendations].sort((a, b) => b.relevanceScore - a.relevanceScore).map((rec, index) => {
                   const panel = mockPanels.find(p => p.id === rec.panelId) || {
                     id: rec.panelId,
                     name: rec.panel?.name || rec.panelId,
@@ -499,12 +497,20 @@ export default function NewAnalysis() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Window Configuration */}
-              <WindowConfigPanel
-                config={windowConfig}
-                onChange={setWindowConfig}
-                maxSequenceLength={parseResult?.stats.maxLength || 10000}
-              />
+              {/* Window Configuration - Separate panels for start and end */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Windowed Analysis</h4>
+                <StartWindowConfigPanel
+                  config={windowConfig.start}
+                  onChange={(cfg) => setWindowConfig({ ...windowConfig, start: cfg })}
+                  maxSequenceLength={parseResult?.stats.maxLength || 10000}
+                />
+                <EndWindowConfigPanel
+                  config={windowConfig.end}
+                  onChange={(cfg) => setWindowConfig({ ...windowConfig, end: cfg })}
+                  maxSequenceLength={parseResult?.stats.maxLength || 10000}
+                />
+              </div>
 
               {/* Selected Panels Summary */}
               <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
@@ -512,10 +518,11 @@ export default function NewAnalysis() {
                 <div className="flex flex-wrap gap-2">
                   {selectedPanels.map(panelId => {
                     const panel = FEATURE_PANELS.find(p => p.id === panelId);
+                    const windowedEnabled = windowConfig.start.enabled || windowConfig.end.enabled;
                     return panel ? (
                       <Badge key={panelId} variant="secondary">
                         {panel.name}
-                        {windowConfig.enabled && !panel.supportsWindowed && (
+                        {windowedEnabled && !panel.supportsWindowed && (
                           <span className="ml-1 text-amber-600">(global only)</span>
                         )}
                       </Badge>
@@ -524,7 +531,7 @@ export default function NewAnalysis() {
                 </div>
               </div>
 
-              {/* Runtime Estimate */}
+              {/* Runtime Estimate - based on window count */}
               <Card variant="emerald">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
@@ -533,13 +540,38 @@ export default function NewAnalysis() {
                     </div>
                     <div>
                       <p className="font-medium">Estimated Runtime</p>
-                      <p className="text-2xl font-display font-bold text-emerald-700">
-                        {windowConfig.enabled ? '5-15' : '1-3'} minutes
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {parseResult?.stats.count || 0} sequences × {selectedPanels.length} panels
-                        {windowConfig.enabled && ` (windowed: ${windowConfig.windowSize}bp / ${windowConfig.stepSize}bp step)`}
-                      </p>
+                      {(() => {
+                        const seqCount = parseResult?.stats.count || 0;
+                        const maxLen = parseResult?.stats.maxLength || 1000;
+                        
+                        const calcWindows = (cfg: SingleWindowConfig, length: number) => {
+                          if (!cfg.enabled || cfg.windowSize <= 0 || cfg.stepSize <= 0) return 0;
+                          const effectiveLen = (cfg.endIndex ?? length) - (cfg.startIndex ?? 0);
+                          if (effectiveLen < cfg.windowSize) return 0;
+                          return Math.max(1, Math.floor((effectiveLen - cfg.windowSize) / cfg.stepSize) + 1);
+                        };
+                        
+                        const startWindows = calcWindows(windowConfig.start, maxLen);
+                        const endWindows = calcWindows(windowConfig.end, maxLen);
+                        const totalWindowsPerSeq = startWindows + endWindows;
+                        const totalOperations = seqCount * selectedPanels.length * Math.max(1, totalWindowsPerSeq);
+                        
+                        // Rough estimate: 0.1s per 100 operations
+                        const estMinutes = Math.max(1, Math.ceil(totalOperations / 600));
+                        const estMaxMinutes = estMinutes * 2;
+                        
+                        return (
+                          <>
+                            <p className="text-2xl font-display font-bold text-emerald-700">
+                              {estMinutes}-{estMaxMinutes} minutes
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {seqCount} sequences × {selectedPanels.length} panels
+                              {totalWindowsPerSeq > 0 && ` × ~${totalWindowsPerSeq} windows/seq`}
+                            </p>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </CardContent>

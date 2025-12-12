@@ -111,33 +111,23 @@ export default function AnalysisPlayground() {
     if (!featureId || !hypothesis) {
       return "Run an analysis with a hypothesis to see feature-specific relevance.";
     }
-    const relevanceMap: Record<string, Record<string, string>> = {
-      enc: {
-        default: "ENC measures codon bias diversity, indicating translational selection pressure.",
-        expression: "Lower ENC values in your sequences may indicate stronger selection for efficient translation under stress.",
-        stress: "Stress-responsive genes often show distinct ENC patterns reflecting adaptation to rapid protein production.",
-      },
-      cai: {
-        default: "CAI indicates how well codons match highly expressed gene patterns.",
-        expression: "High CAI values suggest optimization for rapid, efficient translation matching your expression hypothesis.",
-        stress: "Stress genes with high CAI may be pre-adapted for quick upregulation during cellular stress.",
-      },
-      mfe: {
-        default: "MFE predicts RNA secondary structure stability affecting translation.",
-        expression: "Stable 5' structures (negative MFE) can slow ribosome initiation, affecting expression levels.",
-        stress: "Stress-responsive mRNAs may have specific structural features for regulatory control.",
-      },
-      gc: {
-        default: "GC content affects thermal stability and codon usage patterns.",
-        expression: "GC-rich regions correlate with specific codon usage biases affecting translation.",
-        stress: "GC content gradients may indicate regulatory regions important for stress response.",
-      },
+    
+    // Create hypothesis-specific relevance that references the actual hypothesis
+    const hypothesisSnippet = hypothesis.length > 50 ? hypothesis.slice(0, 50) + '...' : hypothesis;
+    
+    const relevanceTemplates: Record<string, (h: string) => string> = {
+      enc: (h) => `Given your hypothesis "${hypothesisSnippet}", ENC values can reveal whether your sequences show codon usage bias consistent with ${h.toLowerCase().includes('stress') ? 'stress-responsive' : h.toLowerCase().includes('express') ? 'highly expressed' : 'selected'} genes. Lower ENC indicates stronger bias.`,
+      cai: (h) => `For your hypothesis "${hypothesisSnippet}", CAI measures how well codon usage matches ${h.toLowerCase().includes('expression') || h.toLowerCase().includes('express') ? 'high-expression reference genes' : 'optimal translation efficiency'}. High CAI supports predictions of efficient protein production.`,
+      mfe: (h) => `Regarding "${hypothesisSnippet}", MFE reveals mRNA structure stability. ${h.toLowerCase().includes('stress') ? 'Stress-responsive genes may have specific 5\' structures affecting rapid translation initiation.' : 'Negative MFE in 5\' regions can affect ribosome access and translation rates.'}`,
+      gc: (h) => `In context of "${hypothesisSnippet}", GC content correlates with ${h.toLowerCase().includes('thermophil') ? 'thermal stability' : h.toLowerCase().includes('codon') ? 'synonymous codon choices' : 'structural and regulatory properties'} that may explain observed expression patterns.`,
     };
-    const featureMap = relevanceMap[featureId] || { default: "This feature provides insights into sequence characteristics." };
-    const lowerHypothesis = hypothesis.toLowerCase();
-    if (lowerHypothesis.includes('stress')) return featureMap.stress || featureMap.default;
-    if (lowerHypothesis.includes('express')) return featureMap.expression || featureMap.default;
-    return featureMap.default;
+    
+    const template = relevanceTemplates[featureId];
+    if (template) {
+      return template(hypothesis);
+    }
+    
+    return `This feature may provide insights relevant to your hypothesis: "${hypothesisSnippet}"`;
   };
   
   // Generate mock data for export - regenerated on each computation
