@@ -33,9 +33,24 @@ export function WindowConfigPanel({
     onChange({ ...config, stepSize: value });
   };
 
+  const handleFromEndChange = (fromEnd: boolean) => {
+    onChange({ ...config, fromEnd });
+  };
+
+  const handleStartIndexChange = (value: number) => {
+    onChange({ ...config, startIndex: value || undefined });
+  };
+
+  const handleEndIndexChange = (value: number) => {
+    onChange({ ...config, endIndex: value || undefined });
+  };
+
   // Calculate estimated number of windows for a typical sequence
+  const effectiveLength = config.endIndex && config.startIndex 
+    ? config.endIndex - config.startIndex 
+    : maxSequenceLength;
   const estimatedWindows = config.enabled && config.windowSize > 0 && config.stepSize > 0
-    ? Math.max(1, Math.floor((maxSequenceLength - config.windowSize) / config.stepSize) + 1)
+    ? Math.max(1, Math.floor((effectiveLength - config.windowSize) / config.stepSize) + 1)
     : 1;
 
   return (
@@ -73,7 +88,7 @@ export function WindowConfigPanel({
                 id="window-size"
                 min={10}
                 max={1000}
-                step={10}
+                step={1}
                 value={[config.windowSize]}
                 onValueChange={([value]) => handleWindowSizeChange(value)}
                 disabled={disabled}
@@ -82,7 +97,7 @@ export function WindowConfigPanel({
               <Input
                 type="number"
                 value={config.windowSize}
-                onChange={(e) => handleWindowSizeChange(parseInt(e.target.value) || 100)}
+                onChange={(e) => handleWindowSizeChange(parseInt(e.target.value) || 45)}
                 min={10}
                 max={maxSequenceLength}
                 className="w-20 h-8 text-xs"
@@ -114,13 +129,65 @@ export function WindowConfigPanel({
               <Input
                 type="number"
                 value={config.stepSize}
-                onChange={(e) => handleStepSizeChange(parseInt(e.target.value) || 10)}
+                onChange={(e) => handleStepSizeChange(parseInt(e.target.value) || 3)}
                 min={1}
                 max={config.windowSize}
                 className="w-20 h-8 text-xs"
                 disabled={disabled}
               />
             </div>
+          </div>
+
+          {/* Start/End Indices */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="start-index" className="text-xs">
+                Start Index (optional)
+              </Label>
+              <Input
+                id="start-index"
+                type="number"
+                value={config.startIndex ?? ''}
+                onChange={(e) => handleStartIndexChange(parseInt(e.target.value))}
+                placeholder="0"
+                min={0}
+                className="h-8 text-xs"
+                disabled={disabled}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end-index" className="text-xs">
+                End Index (optional)
+              </Label>
+              <Input
+                id="end-index"
+                type="number"
+                value={config.endIndex ?? ''}
+                onChange={(e) => handleEndIndexChange(parseInt(e.target.value))}
+                placeholder="Sequence end"
+                min={config.startIndex || 0}
+                className="h-8 text-xs"
+                disabled={disabled}
+              />
+            </div>
+          </div>
+
+          {/* From End Toggle */}
+          <div className="flex items-center justify-between p-2 rounded bg-muted/30">
+            <div>
+              <Label htmlFor="from-end" className="text-xs font-medium">
+                Window from End
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Start sliding windows from the end of sequence
+              </p>
+            </div>
+            <Switch
+              id="from-end"
+              checked={config.fromEnd}
+              onCheckedChange={handleFromEndChange}
+              disabled={disabled}
+            />
           </div>
 
           <div className="p-2 rounded bg-muted/50 text-xs text-muted-foreground">
@@ -132,6 +199,9 @@ export function WindowConfigPanel({
             </p>
             <p className="mt-1">
               <strong>Est. windows per sequence:</strong> ~{estimatedWindows.toLocaleString()}
+            </p>
+            <p className="mt-1">
+              <strong>Direction:</strong> {config.fromEnd ? '← From end (3\' to 5\')' : '→ From start (5\' to 3\')'}
             </p>
           </div>
         </CardContent>

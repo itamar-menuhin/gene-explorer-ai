@@ -55,10 +55,15 @@ export function generateCSV(
       row.push(escapeCSV(item.annotations?.[key] || '', delimiter));
     });
     
-    // Add feature values
+    // Add feature values (rounded to nearest 0.001)
     featureNames.forEach(feature => {
       const value = item.features[feature];
-      row.push(value !== null && value !== undefined ? String(value) : '');
+      if (value !== null && value !== undefined) {
+        const numValue = typeof value === 'number' ? Math.round(value * 1000) / 1000 : value;
+        row.push(String(numValue));
+      } else {
+        row.push('');
+      }
     });
     
     return row.join(delimiter);

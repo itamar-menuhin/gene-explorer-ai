@@ -95,8 +95,9 @@ export default function NewAnalysis() {
   const [aiRecommendations, setAiRecommendations] = useState<PanelRecommendation[]>([]);
   const [windowConfig, setWindowConfig] = useState<WindowConfig>({
     enabled: false,
-    windowSize: 100,
-    stepSize: 10,
+    windowSize: 45,
+    stepSize: 3,
+    fromEnd: false,
   });
   
   const { getRecommendations, loading: aiLoading } = usePanelRecommendations();

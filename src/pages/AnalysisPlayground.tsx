@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,10 +56,34 @@ const profileData = generateProfileData();
 const distributionData = generateDistributionData();
 
 const features = [
-  { id: "enc", name: "ENC (Effective Number of Codons)", panel: "Codon Usage Bias" },
-  { id: "cai", name: "CAI Score", panel: "Codon Adaptation Index" },
-  { id: "mfe", name: "MFE (Minimum Free Energy)", panel: "mRNA Secondary Structure" },
-  { id: "gc", name: "GC Content", panel: "GC Content Analysis" },
+  { 
+    id: "enc", 
+    name: "ENC (Effective Number of Codons)", 
+    panel: "Codon Usage Bias",
+    description: "The Effective Number of Codons (ENC) quantifies the degree of codon bias. Values range from 20 (extreme bias, only one codon per amino acid) to 61 (no bias, all codons used equally).",
+    citation: "Wright F., 1990"
+  },
+  { 
+    id: "cai", 
+    name: "CAI Score", 
+    panel: "Codon Adaptation Index",
+    description: "The Codon Adaptation Index measures how well a gene's codon usage matches the codon usage of highly expressed reference genes. Higher values indicate better adaptation for efficient translation.",
+    citation: "Sharp & Li, 1987"
+  },
+  { 
+    id: "mfe", 
+    name: "MFE (Minimum Free Energy)", 
+    panel: "mRNA Secondary Structure",
+    description: "Minimum Free Energy predicts the most stable RNA secondary structure. More negative values indicate stronger, more stable structures which may affect translation efficiency.",
+    citation: "Zuker M., 2003"
+  },
+  { 
+    id: "gc", 
+    name: "GC Content", 
+    panel: "GC Content Analysis",
+    description: "The percentage of guanine and cytosine bases in the sequence. GC content affects melting temperature, secondary structure stability, and codon usage patterns.",
+    citation: "Various"
+  },
 ];
 
 const sequences = [
@@ -77,10 +101,11 @@ export default function AnalysisPlayground() {
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [status, setStatus] = useState<'draft' | 'computing' | 'completed'>('completed');
   const [showProgress, setShowProgress] = useState(false);
+  const [computationId, setComputationId] = useState<number>(Date.now());
 
   const currentFeature = features.find(f => f.id === selectedFeature);
   
-  // Generate mock data for export
+  // Generate mock data for export - regenerated on each computation
   const mockSequences = sequences.slice(1).map((s, i) => ({
     id: s.id,
     name: s.name.split(' - ')[0],
@@ -88,7 +113,13 @@ export default function AnalysisPlayground() {
     length: 400 + i * 50
   }));
   const selectedPanels = ['codon_usage', 'cai', 'mrna_folding', 'gc_content'];
-  const featureData = generateMockFeatureData(mockSequences, selectedPanels);
+  
+  // Use computationId as a seed for reproducible but unique results
+  const featureData = useMemo(() => {
+    // Reset random seed based on computation ID to get fresh data
+    return generateMockFeatureData(mockSequences, selectedPanels);
+  }, [computationId]);
+  
   const featureNames = getAllFeatureNames(selectedPanels);
   
   const mockCitations = [
@@ -128,6 +159,9 @@ export default function AnalysisPlayground() {
     }
     
     const completedPanels = await startComputation();
+    
+    // Trigger new feature data generation
+    setComputationId(Date.now());
     
     if (id) {
       await supabase.from('analyses')
@@ -290,23 +324,21 @@ export default function AnalysisPlayground() {
                 <div>
                   <h4 className="font-medium mb-1">{currentFeature?.name}</h4>
                   <p className="text-muted-foreground">
-                    The Codon Adaptation Index measures how well a gene's codon usage matches 
-                    the codon usage of highly expressed reference genes. Higher values indicate 
-                    better adaptation for efficient translation.
+                    {currentFeature?.description}
                   </p>
                 </div>
 
                 <div className="bg-ocean-100/50 rounded-lg p-3 border border-ocean-200">
                   <p className="text-ocean-800">
-                    <strong>Relevance:</strong> CAI is a strong predictor of gene expression levels 
-                    and translation efficiency, directly relevant to your hypothesis about stress genes.
+                    <strong>Relevance:</strong> This feature helps analyze gene expression patterns 
+                    and translation efficiency relevant to your hypothesis.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <BookOpen className="h-4 w-4" />
                   <a href="#" className="hover:text-foreground transition-colors flex items-center gap-1">
-                    Sharp & Li, 1987
+                    {currentFeature?.citation}
                     <ArrowUpRight className="h-3 w-3" />
                   </a>
                 </div>
