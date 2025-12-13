@@ -356,11 +356,37 @@ function extractFeatures(
   if (enabledPanels.includes('codonUsage')) {
     features.enc = Math.round(calculateENC(codons) * 100) / 100;
     features.cai = Math.round(calculateCAI(codons, ECOLI_REFERENCE_WEIGHTS) * 1000) / 1000;
-    features.rare_codon_freq = Math.round(calculateRareCodonFrequency(codons) * 100) / 100;
-    // Additional codon usage features as placeholders
+    
+    // RCBS (Relative Codon Bias Strength) - normalized ENC-based bias measure
     features.rcbs = Math.round((61 - calculateENC(codons)) / 41 * 100) / 100;
-    features.cpb = Math.round(calculateRareCodonFrequency(codons) * 0.8 * 100) / 100;
-    features.dcbs = Math.round((61 - calculateENC(codons)) / 41 * 100) / 100;
+    
+    // RSCU calculation - average RSCU value
+    const rscuValues = calculateRSCU(codons);
+    const rscuArray = Object.values(rscuValues);
+    features.rscu = rscuArray.length > 0 
+      ? Math.round((rscuArray.reduce((a, b) => a + b, 0) / rscuArray.length) * 1000) / 1000
+      : 1.0;
+    
+    // CPB (Codon Pair Bias) - approximation based on rare codon frequency
+    // Coefficient represents relationship between rare codons and CPB
+    features.cpb = Math.round(calculateRareCodonFrequency(codons) * 0.85 * 100) / 100;
+    
+    // DCBS (Distance from optimal Codon Bias Score) - different from RCBS
+    // Uses CAI as basis rather than ENC
+    const cai = calculateCAI(codons, ECOLI_REFERENCE_WEIGHTS);
+    features.dcbs = Math.round((1.0 - cai) * 100) / 100;
+    
+    // FOP (Frequency of Optimal codons) - percentage of optimal codons used
+    let optimalCount = 0;
+    for (const codon of codons) {
+      const weight = ECOLI_REFERENCE_WEIGHTS[codon];
+      if (weight !== undefined && weight >= 0.9) {
+        optimalCount++;
+      }
+    }
+    features.fop = codons.length > 0 
+      ? Math.round((optimalCount / codons.length) * 10000) / 100
+      : 0;
   }
   
   // Disorder Prediction Panel (placeholder)

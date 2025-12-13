@@ -104,7 +104,7 @@ export function generateMockFeatureData(sequences: ParsedSequence[], panels: str
   const featuresByPanel: Record<string, string[]> = {
     sequence: ['gc_content', 'at_content', 'length', 'a_count', 't_count', 'g_count', 'c_count'],
     chemical: ['isoelectric_point', 'instability_index', 'molecular_weight', 'gravy', 'aromaticity_index'],
-    codonUsage: ['enc', 'cai', 'rcbs', 'rscu', 'cpb', 'dcbs'],
+    codonUsage: ['enc', 'cai', 'rcbs', 'rscu', 'cpb', 'dcbs', 'fop'],
     disorder: ['iupred_score', 'disorder_regions', 'disorder_fraction'],
     structure: ['helix_propensity', 'sheet_propensity', 'coil_propensity'],
     motif: ['motif_count', 'motif_density', 'top_motifs']
@@ -118,7 +118,7 @@ export function generateMockFeatureData(sequences: ParsedSequence[], panels: str
       panelFeatures.forEach(feature => {
         // Generate mock values based on feature type
         if (feature === 'enc') features[feature] = 30 + Math.random() * 30;
-        else if (feature === 'cai') features[feature] = 0.3 + Math.random() * 0.5;
+        else if (feature === 'cai' || feature === 'fop') features[feature] = 0.3 + Math.random() * 0.5;
         else if (feature === 'gc_content' || feature === 'at_content') features[feature] = 40 + Math.random() * 20;
         else if (feature.includes('count')) features[feature] = Math.floor(seq.length * (0.2 + Math.random() * 0.1));
         else if (feature === 'length') features[feature] = seq.length;
@@ -141,7 +141,7 @@ export function getAllFeatureNames(panels: string[]): string[] {
   const featuresByPanel: Record<string, string[]> = {
     sequence: ['gc_content', 'at_content', 'length', 'a_count', 't_count', 'g_count', 'c_count'],
     chemical: ['isoelectric_point', 'instability_index', 'molecular_weight', 'gravy', 'aromaticity_index'],
-    codonUsage: ['enc', 'cai', 'rcbs', 'rscu', 'cpb', 'dcbs'],
+    codonUsage: ['enc', 'cai', 'rcbs', 'rscu', 'cpb', 'dcbs', 'fop'],
     disorder: ['iupred_score', 'disorder_regions', 'disorder_fraction'],
     structure: ['helix_propensity', 'sheet_propensity', 'coil_propensity'],
     motif: ['motif_count', 'motif_density', 'top_motifs']
