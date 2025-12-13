@@ -159,6 +159,13 @@ export default function NewAnalysis() {
 
     setIsSubmitting(true);
     
+    // Prepare sequences for storage
+    const sequencesData = parseResult.sequences.map(seq => ({
+      id: seq.id,
+      name: seq.name || seq.id,
+      sequence: seq.sequence,
+    }));
+    
     const { data, error } = await supabase
       .from('analyses')
       .insert({
@@ -171,6 +178,8 @@ export default function NewAnalysis() {
         max_length: parseResult.stats.maxLength,
         median_length: parseResult.stats.medianLength,
         selected_panels: selectedPanels,
+        sequences: sequencesData as any,
+        window_config: windowConfig as any,
         status: 'draft'
       })
       .select()
@@ -184,7 +193,11 @@ export default function NewAnalysis() {
       toast({ title: "Analysis created", description: "Starting computation..." });
       // Pass AI recommendations via state to avoid recalculation
       navigate(`/analysis/${data.id}`, { 
-        state: { aiRecommendations: aiRecommendations } 
+        state: { 
+          aiRecommendations: aiRecommendations,
+          sequences: sequencesData,
+          windowConfig: windowConfig
+        } 
       });
     }
   };

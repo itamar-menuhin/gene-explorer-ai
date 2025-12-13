@@ -22,6 +22,9 @@ import { ComputationProgress } from "@/components/analysis/ComputationProgress";
 import { useComputationProgress } from "@/hooks/useComputationProgress";
 import { generateMockFeatureData, getAllFeatureNames, FeatureData } from "@/lib/csvExport";
 import { supabase } from "@/integrations/supabase/client";
+import { useFeatureExtraction } from "@/hooks/useFeatureExtraction";
+import { useToast } from "@/hooks/use-toast";
+import type { SequenceInput, FeaturePanelConfig } from "@/types/featureExtraction";
 
 // Mock data for visualizations
 const generateProfileData = () => {
@@ -98,6 +101,7 @@ const sequences = [
 export default function AnalysisPlayground() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const { toast } = useToast();
   const [selectedFeature, setSelectedFeature] = useState("cai");
   const [selectedSequence, setSelectedSequence] = useState("all");
   const [analysisName, setAnalysisName] = useState("Stress Response Codon Analysis");
@@ -117,6 +121,10 @@ export default function AnalysisPlayground() {
   // Options visibility state
   const [profileOptionsOpen, setProfileOptionsOpen] = useState(false);
   const [distributionOptionsOpen, setDistributionOptionsOpen] = useState(false);
+  
+  // Stored sequences and window config
+  const [storedSequences, setStoredSequences] = useState<SequenceInput[]>([]);
+  const [storedWindowConfig, setStoredWindowConfig] = useState<any>(null);
 
   const currentFeature = features.find(f => f.id === selectedFeature);
   
@@ -141,6 +149,14 @@ export default function AnalysisPlayground() {
           setHypothesis(data?.hypothesis ?? null);
           setShareToken(data?.share_token ?? null);
           setStatus(data?.status ?? 'draft');
+          
+          // Load sequences and window config from database if not already loaded from state
+          if (data.sequences && storedSequences.length === 0) {
+            setStoredSequences(data.sequences as SequenceInput[]);
+          }
+          if (data.window_config && !storedWindowConfig) {
+            setStoredWindowConfig(data.window_config);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch analysis:', err);
@@ -189,22 +205,24 @@ export default function AnalysisPlayground() {
     length: 400 + i * 50
   }));
   
-  // Sort panels by cached recommendation relevance (highest first)
+  // Get selected panels from analysis data, or use cached recommendations
   const selectedPanels = useMemo(() => {
-    const basePanels = ['codon_usage', 'cai', 'mrna_folding', 'gc_content'];
-    if (cachedRecommendations.length === 0) return basePanels;
+    // First priority: use panels from the database
+    if (realAnalysisData?.selected_panels && realAnalysisData.selected_panels.length > 0) {
+      return realAnalysisData.selected_panels;
+    }
     
-    // Sort based on recommendation order (already sorted by relevance from guided mode)
-    const recommendedOrder = cachedRecommendations
-      .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .map(r => r.panelId);
+    // Second priority: use recommended panels from AI
+    if (cachedRecommendations.length > 0) {
+      const recommendedOrder = cachedRecommendations
+        .sort((a, b) => b.relevanceScore - a.relevanceScore)
+        .map(r => r.panelId);
+      return recommendedOrder;
+    }
     
-    // Return panels in recommendation order, keeping any that aren't in recommendations at the end
-    return [
-      ...recommendedOrder.filter(p => basePanels.includes(p)),
-      ...basePanels.filter(p => !recommendedOrder.includes(p))
-    ];
-  }, [cachedRecommendations]);
+    // Fallback: default panels
+    return ['sequence', 'chemical'];
+  }, [realAnalysisData?.selected_panels, cachedRecommendations]);
   
   // Use real data if available, otherwise fall back to mock data
   const featureData = useMemo(() => {
@@ -228,12 +246,33 @@ export default function AnalysisPlayground() {
 
   const { state: progressState, startComputation, stopComputation, resetComputation } = 
     useComputationProgress(248, selectedPanels);
+    
+  const { 
+    extractFeatures, 
+    isLoading: isExtracting, 
+    error: extractionError,
+    results: extractionResults
+  } = useFeatureExtraction({
+    onProgress: (progress, message) => {
+      console.log(`Feature extraction: ${progress}% - ${message}`);
+    }
+  });
 
-  // Load cached recommendations from navigation state
+  // Load cached recommendations and sequences from navigation state
   useEffect(() => {
-    const state = location.state as { aiRecommendations?: PanelRecommendation[] } | null;
+    const state = location.state as { 
+      aiRecommendations?: PanelRecommendation[];
+      sequences?: SequenceInput[];
+      windowConfig?: any;
+    } | null;
     if (state?.aiRecommendations) {
       setCachedRecommendations(state.aiRecommendations);
+    }
+    if (state?.sequences) {
+      setStoredSequences(state.sequences);
+    }
+    if (state?.windowConfig) {
+      setStoredWindowConfig(state.windowConfig);
     }
   }, [location.state]);
 
@@ -262,28 +301,80 @@ export default function AnalysisPlayground() {
   }, [id]);
 
   const handleStartComputation = async () => {
+    if (!id) {
+      toast({ variant: "destructive", title: "No analysis ID found" });
+      return;
+    }
+    
+    if (storedSequences.length === 0) {
+      toast({ variant: "destructive", title: "No sequences found", description: "Please create a new analysis" });
+      return;
+    }
+    
+    if (selectedPanels.length === 0) {
+      toast({ variant: "destructive", title: "No panels selected", description: "Please select at least one feature panel" });
+      return;
+    }
+    
     setShowProgress(true);
     setStatus('computing');
     
-    if (id) {
-      await supabase.from('analyses').update({ status: 'computing' }).eq('id', id);
-    }
+    // Update status in database
+    await supabase.from('analyses').update({ status: 'computing' }).eq('id', id);
     
-    const completedPanels = await startComputation();
-    
-    // Trigger new feature data generation
-    setComputationId(Date.now());
-    
-    if (id) {
+    try {
+      // Prepare panel configuration
+      const panelConfig: Partial<FeaturePanelConfig> = {};
+      selectedPanels.forEach(panelId => {
+        panelConfig[panelId] = { enabled: true };
+      });
+      
+      // Call the feature extraction API
+      const result = await extractFeatures(
+        storedSequences,
+        panelConfig,
+        storedWindowConfig || undefined
+      );
+      
+      if (result && result.success) {
+        // Store results in database
+        await supabase.from('analyses')
+          .update({ 
+            status: 'completed', 
+            computed_at: new Date().toISOString(),
+            results: result as any,
+            selected_panels: selectedPanels 
+          })
+          .eq('id', id);
+        
+        setStatus('completed');
+        setComputationId(Date.now());
+        setRealAnalysisData((prev: any) => ({ ...prev, results: result }));
+        
+        toast({ 
+          title: "Computation complete", 
+          description: `Successfully analyzed ${storedSequences.length} sequences` 
+        });
+      } else {
+        throw new Error(extractionError || 'Feature extraction failed');
+      }
+    } catch (error) {
+      console.error('Computation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
       await supabase.from('analyses')
-        .update({ 
-          status: 'completed', 
-          computed_at: new Date().toISOString(),
-          selected_panels: completedPanels 
-        })
+        .update({ status: 'draft' })
         .eq('id', id);
+      
+      setStatus('draft');
+      setShowProgress(false);
+      
+      toast({ 
+        variant: "destructive", 
+        title: "Computation failed", 
+        description: errorMessage 
+      });
     }
-    setStatus('completed');
   };
 
   const handleStopComputation = () => {
