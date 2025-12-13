@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   BarChart3, Download, BookOpen, Info, 
-  ChevronDown, TrendingUp, Layers, ArrowUpRight, Play
+  ChevronDown, TrendingUp, Layers, ArrowUpRight, Play, Loader2
 } from "lucide-react";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -21,6 +21,8 @@ import { ComputationProgress } from "@/components/analysis/ComputationProgress";
 import { useComputationProgress } from "@/hooks/useComputationProgress";
 import { generateMockFeatureData, getAllFeatureNames, FeatureData } from "@/lib/csvExport";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useFeatureExtraction } from "@/hooks/useFeatureExtraction";
 
 // Mock data for visualizations
 const generateProfileData = () => {
@@ -97,6 +99,7 @@ const sequences = [
 export default function AnalysisPlayground() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const { toast } = useToast();
   const [selectedFeature, setSelectedFeature] = useState("cai");
   const [selectedSequence, setSelectedSequence] = useState("all");
   const [analysisName, setAnalysisName] = useState("Stress Response Codon Analysis");
@@ -112,6 +115,24 @@ export default function AnalysisPlayground() {
   // Real analysis data from database
   const [realAnalysisData, setRealAnalysisData] = useState<any>(null);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
+  
+  // Real feature extraction results
+  const [extractedResults, setExtractedResults] = useState<any>(null);
+  
+  // Sequences from location state (passed from NewAnalysis)
+  const [sequences, setSequences] = useState<Array<{id: string; sequence: string; name?: string}>>([]);
+  
+  // Feature extraction hook
+  const { 
+    extractFeatures, 
+    isLoading: isExtracting, 
+    progress: extractionProgress,
+    error: extractionError 
+  } = useFeatureExtraction({
+    onProgress: (progress, message) => {
+      console.log(`Extraction progress: ${progress}% - ${message}`);
+    }
+  });
 
   const currentFeature = features.find(f => f.id === selectedFeature);
   
@@ -201,8 +222,17 @@ export default function AnalysisPlayground() {
     ];
   }, [cachedRecommendations]);
   
-  // Use real data if available, otherwise fall back to mock data
+  // Use real extracted data if available, otherwise fall back to mock data
   const featureData = useMemo(() => {
+    // If we have extracted results from edge function, use them
+    if (extractedResults?.results) {
+      return extractedResults.results.map((r: any) => ({
+        sequenceId: r.sequenceId,
+        sequenceName: r.sequenceName || r.sequenceId,
+        ...r.features
+      }));
+    }
+    
     // If we have real analysis data with results, use it
     if (realAnalysisData?.results) {
       return realAnalysisData.results;
@@ -211,7 +241,7 @@ export default function AnalysisPlayground() {
     // Otherwise, use mock data if computation was triggered
     if (computationId === null) return [];
     return generateMockFeatureData(mockSequences, selectedPanels);
-  }, [realAnalysisData, computationId, selectedPanels, mockSequences]);
+  }, [extractedResults, realAnalysisData, computationId, selectedPanels, mockSequences]);
   
   const featureNames = getAllFeatureNames(selectedPanels);
   
@@ -264,21 +294,47 @@ export default function AnalysisPlayground() {
       await supabase.from('analyses').update({ status: 'computing' }).eq('id', id);
     }
     
-    const completedPanels = await startComputation();
+    // Prepare panel config for extraction
+    const panelConfig: Record<string, { enabled: boolean }> = {};
+    selectedPanels.forEach(panelId => {
+      panelConfig[panelId] = { enabled: true };
+    });
     
-    // Trigger new feature data generation
-    setComputationId(Date.now());
+    // Generate mock sequences if we don't have real ones (for demo)
+    const seqsToProcess = sequences.length > 0 ? sequences : mockSequences.map((s, i) => ({
+      id: s.id,
+      sequence: 'ATGCGTACGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG'.repeat(10 + i * 2),
+      name: s.name
+    }));
+    
+    try {
+      // Call the real extract-features edge function
+      const result = await extractFeatures(seqsToProcess, panelConfig);
+      
+      if (result && result.success) {
+        setExtractedResults(result);
+        setComputationId(Date.now());
+        toast({ title: "Computation complete", description: `Extracted features for ${result.results?.length || 0} sequences` });
+      } else {
+        const errorMsg = result?.errors?.[0]?.error || "Unknown error";
+        toast({ variant: "destructive", title: "Extraction failed", description: errorMsg });
+      }
+    } catch (err) {
+      console.error('Feature extraction error:', err);
+      toast({ variant: "destructive", title: "Extraction failed", description: err instanceof Error ? err.message : "Unknown error" });
+    }
     
     if (id) {
       await supabase.from('analyses')
         .update({ 
           status: 'completed', 
           computed_at: new Date().toISOString(),
-          selected_panels: completedPanels 
+          selected_panels: selectedPanels 
         })
         .eq('id', id);
     }
     setStatus('completed');
+    setShowProgress(false);
   };
 
   const handleStopComputation = () => {
