@@ -356,7 +356,7 @@ export default function AnalysisPlayground() {
           description: `Successfully analyzed ${storedSequences.length} sequences` 
         });
       } else {
-        throw new Error(extractionError || 'Feature extraction failed');
+        throw new Error('Feature extraction failed - no valid result returned');
       }
     } catch (error) {
       console.error('Computation error:', error);
@@ -605,20 +605,20 @@ export default function AnalysisPlayground() {
                             Options
                           </Button>
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="absolute right-6 top-16 z-10 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-4">
+                        <CollapsibleContent className="absolute right-0 mt-2 z-10 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-4">
                           <div className="space-y-3">
                             <h4 className="font-medium text-sm">Display Options</h4>
                             <div className="space-y-2">
-                              <label className="flex items-center gap-2 text-sm">
-                                <input type="checkbox" defaultChecked className="rounded" />
+                              <label htmlFor="profile-quantile" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="profile-quantile" type="checkbox" defaultChecked className="rounded" />
                                 Show quantile bands
                               </label>
-                              <label className="flex items-center gap-2 text-sm">
-                                <input type="checkbox" defaultChecked className="rounded" />
+                              <label htmlFor="profile-median" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="profile-median" type="checkbox" defaultChecked className="rounded" />
                                 Show median line
                               </label>
-                              <label className="flex items-center gap-2 text-sm">
-                                <input type="checkbox" className="rounded" />
+                              <label htmlFor="profile-grid" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="profile-grid" type="checkbox" className="rounded" />
                                 Show grid
                               </label>
                             </div>
@@ -753,20 +753,20 @@ export default function AnalysisPlayground() {
                             Options
                           </Button>
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="absolute right-6 top-16 z-10 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-4">
+                        <CollapsibleContent className="absolute right-0 mt-2 z-10 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-4">
                           <div className="space-y-3">
                             <h4 className="font-medium text-sm">Display Options</h4>
                             <div className="space-y-2">
-                              <label className="flex items-center gap-2 text-sm">
-                                <input type="checkbox" defaultChecked className="rounded" />
+                              <label htmlFor="dist-area" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="dist-area" type="checkbox" defaultChecked className="rounded" />
                                 Show area fill
                               </label>
-                              <label className="flex items-center gap-2 text-sm">
-                                <input type="checkbox" defaultChecked className="rounded" />
+                              <label htmlFor="dist-stats" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="dist-stats" type="checkbox" defaultChecked className="rounded" />
                                 Show summary stats
                               </label>
-                              <label className="flex items-center gap-2 text-sm">
-                                <input type="checkbox" className="rounded" />
+                              <label htmlFor="dist-smooth" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="dist-smooth" type="checkbox" className="rounded" />
                                 Smooth curve
                               </label>
                             </div>
