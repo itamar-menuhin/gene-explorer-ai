@@ -8,24 +8,38 @@ The analysis computation requires the Python backend URL to be configured in Sup
 
 ### Step 1: Get Your Railway Backend URL
 
+**Note:** I cannot access Railway or retrieve URLs automatically. You must get this URL manually.
+
 The backend is deployed at Railway. To find your backend URL:
 
 1. Visit your Railway project: https://railway.com/project/e27d711a-0387-4c88-9776-27fe3f84ebd3
-2. Click on your backend service
+   - You must be logged into Railway
+2. Click on your backend service (look for "backend" or similar name)
 3. Go to the "Settings" tab
-4. Copy the "Public URL" (should look like: `https://gene-explorer-backend-production.up.railway.app`)
+4. Find "Public Networking" or "Domains" section
+5. Copy the "Public URL" (should look like: `https://gene-explorer-backend-production.up.railway.app`)
+
+**Helper Script:** Once you have the URL, test it with:
+```bash
+./scripts/configure-backend.sh https://your-railway-url.up.railway.app
+```
 
 ### Step 2: Configure Supabase Edge Function
+
+**Note:** I cannot access Supabase or configure secrets automatically. You must do this manually.
 
 You **MUST** configure the `PYTHON_BACKEND_URL` in Supabase for the analysis to work:
 
 1. Go to your Supabase Dashboard: https://supabase.com/dashboard/project/nkshlnzpyzoxhatbblyg
+   - You must be logged into Supabase
 2. Navigate to: **Edge Functions** → **extract-features** → **Settings**
-3. Under "Secrets", add a new secret:
-   - Name: `PYTHON_BACKEND_URL`
-   - Value: Your Railway URL (e.g., `https://gene-explorer-backend-production.up.railway.app`)
-4. Click "Save"
-5. **Redeploy the edge function** for changes to take effect
+3. Under "Secrets" or "Environment Variables", add a new secret:
+   - Name: `PYTHON_BACKEND_URL` (case-sensitive!)
+   - Value: Your Railway URL from Step 1 (e.g., `https://gene-explorer-backend-production.up.railway.app`)
+4. Click "Save" or "Add"
+5. **CRITICAL: Redeploy the edge function** for changes to take effect
+   - Look for a "Redeploy" button
+   - Click it to apply the configuration
 
 ### Step 3: Verify Backend is Running
 
