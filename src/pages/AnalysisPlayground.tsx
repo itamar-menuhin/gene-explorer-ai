@@ -226,11 +226,17 @@ export default function AnalysisPlayground() {
   const featureData = useMemo(() => {
     // If we have extracted results from edge function, use them
     if (extractedResults?.results) {
-      return extractedResults.results.map((r: any) => ({
-        sequenceId: r.sequenceId,
-        sequenceName: r.sequenceName || r.sequenceId,
-        ...r.features
-      }));
+      return extractedResults.results.map((r: any) => {
+        // Find the sequence to get length
+        const seq = sequences.find(s => s.id === r.sequenceId);
+        return {
+          sequenceId: r.sequenceId,
+          sequenceName: r.sequenceName || r.sequenceId,
+          sequenceLength: seq?.sequence?.length || 0,
+          features: r.features || {},
+          annotations: {}
+        };
+      });
     }
     
     // If we have real analysis data with results, use it
@@ -241,9 +247,15 @@ export default function AnalysisPlayground() {
     // Otherwise, use mock data if computation was triggered
     if (computationId === null) return [];
     return generateMockFeatureData(mockSequences, selectedPanels);
-  }, [extractedResults, realAnalysisData, computationId, selectedPanels, mockSequences]);
+  }, [extractedResults, realAnalysisData, computationId, selectedPanels, mockSequences, sequences]);
   
-  const featureNames = getAllFeatureNames(selectedPanels);
+  // Get feature names from extracted results or fallback to panel-based names
+  const featureNames = useMemo(() => {
+    if (extractedResults?.results?.[0]?.features) {
+      return Object.keys(extractedResults.results[0].features);
+    }
+    return getAllFeatureNames(selectedPanels);
+  }, [extractedResults, selectedPanels]);
   
   const mockCitations = [
     { title: 'The effective number of codons used in a gene', authors: 'Wright F.', year: 1990, journal: 'Gene', doi: '10.1016/0378-1119(90)90491-9' },
@@ -422,10 +434,12 @@ export default function AnalysisPlayground() {
         {/* Stats Bar */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           {[
-            { label: "Sequences", value: "248" },
-            { label: "Panels Computed", value: "4" },
-            { label: "Features Available", value: "12" },
-            { label: "Runtime", value: "3m 24s" },
+            { label: "Sequences", value: featureData.length > 0 ? featureData.length.toString() : (sequences.length || realAnalysisData?.sequence_count || 0).toString() },
+            { label: "Panels Computed", value: selectedPanels.length.toString() },
+            { label: "Features Available", value: featureNames.length.toString() },
+            { label: "Runtime", value: extractedResults?.metadata?.computeTimeMs 
+              ? `${(extractedResults.metadata.computeTimeMs / 1000).toFixed(1)}s` 
+              : "—" },
           ].map((stat) => (
             <Card key={stat.label} variant="glass">
               <CardContent className="p-4">
