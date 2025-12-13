@@ -377,13 +377,10 @@ function extractFeatures(
     features.dcbs = Math.round((1.0 - cai) * 100) / 100;
     
     // FOP (Frequency of Optimal codons) - percentage of optimal codons used
-    let optimalCount = 0;
-    for (const codon of codons) {
-      const weight = ECOLI_REFERENCE_WEIGHTS[codon];
-      if (weight !== undefined && weight >= 0.9) {
-        optimalCount++;
-      }
-    }
+    // Optimal codons are those with weight >= 0.9 in the reference set
+    const optimalCount = codons.filter(codon => 
+      ECOLI_REFERENCE_WEIGHTS[codon] !== undefined && ECOLI_REFERENCE_WEIGHTS[codon] >= 0.9
+    ).length;
     features.fop = codons.length > 0 
       ? Math.round((optimalCount / codons.length) * 10000) / 100
       : 0;
