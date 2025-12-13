@@ -254,11 +254,19 @@ export default function AnalysisPlayground() {
   const { state: progressState, startComputation, stopComputation, resetComputation } = 
     useComputationProgress(248, selectedPanels);
 
-  // Load cached recommendations from navigation state
+  // Load cached recommendations and sequences from navigation state
   useEffect(() => {
-    const state = location.state as { aiRecommendations?: PanelRecommendation[] } | null;
+    const state = location.state as { 
+      aiRecommendations?: PanelRecommendation[];
+      sequences?: Array<{id: string; sequence: string; name?: string}>;
+    } | null;
+    
     if (state?.aiRecommendations) {
       setCachedRecommendations(state.aiRecommendations);
+    }
+    if (state?.sequences && state.sequences.length > 0) {
+      setSequences(state.sequences);
+      console.log(`Loaded ${state.sequences.length} sequences from navigation state`);
     }
   }, [location.state]);
 
@@ -300,16 +308,19 @@ export default function AnalysisPlayground() {
       panelConfig[panelId] = { enabled: true };
     });
     
-    // Generate mock sequences if we don't have real ones (for demo)
-    const seqsToProcess = sequences.length > 0 ? sequences : mockSequences.map((s, i) => ({
-      id: s.id,
-      sequence: 'ATGCGTACGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG'.repeat(10 + i * 2),
-      name: s.name
-    }));
+    // Check if we have sequences to process
+    if (sequences.length === 0) {
+      toast({ variant: "destructive", title: "No sequences", description: "Please upload sequences first" });
+      setShowProgress(false);
+      setStatus('draft');
+      return;
+    }
+    
+    console.log(`Starting extraction for ${sequences.length} sequences with panels:`, selectedPanels);
     
     try {
       // Call the real extract-features edge function
-      const result = await extractFeatures(seqsToProcess, panelConfig);
+      const result = await extractFeatures(sequences, panelConfig);
       
       if (result && result.success) {
         setExtractedResults(result);

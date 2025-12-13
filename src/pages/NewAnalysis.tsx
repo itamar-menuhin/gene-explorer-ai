@@ -182,9 +182,16 @@ export default function NewAnalysis() {
       toast({ variant: "destructive", title: "Failed to create analysis", description: error.message });
     } else if (data) {
       toast({ title: "Analysis created", description: "Starting computation..." });
-      // Pass AI recommendations via state to avoid recalculation
+      // Pass AI recommendations and sequences via state
       navigate(`/analysis/${data.id}`, { 
-        state: { aiRecommendations: aiRecommendations } 
+        state: { 
+          aiRecommendations: aiRecommendations,
+          sequences: parseResult?.sequences.map(s => ({
+            id: s.id,
+            sequence: s.sequence,
+            name: s.name || s.id
+          })) || []
+        } 
       });
     }
   };
