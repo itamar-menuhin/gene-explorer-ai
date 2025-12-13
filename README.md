@@ -7,6 +7,7 @@ An AI-powered bioinformatics platform for analyzing genetic sequences with advan
 - **[Complete Architecture Guide](docs/ARCHITECTURE.md)** - Comprehensive overview of the system architecture, components, and data flow
 - **[Python Backend Integration](docs/PYTHON_BACKEND_INTEGRATION.md)** - Step-by-step guide for integrating and deploying the Python backend
 - **[Python API Specification](docs/python-api-spec.md)** - Detailed API contract and feature panel specifications
+- **[AI Agent Prompts](AI_PROMPTS.md)** - Documentation of all AI agent prompts and their organization
 
 ## Project info
 

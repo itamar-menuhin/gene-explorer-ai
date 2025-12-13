@@ -1,11 +1,37 @@
+/**
+ * Recommend Panels Edge Function
+ * 
+ * PURPOSE: AI-powered recommendation of feature analysis panels based on researcher's hypothesis
+ * 
+ * CALLED BY:
+ *   - usePanelRecommendations hook (src/hooks/usePanelRecommendations.ts)
+ *   - Via: supabase.functions.invoke('recommend-panels', { body: { hypothesis, ... } })
+ * 
+ * USED IN:
+ *   - NewAnalysis page (src/pages/NewAnalysis.tsx) - Guided analysis mode
+ *   - User enters research hypothesis, gets AI-powered panel recommendations
+ * 
+ * FLOW:
+ *   1. Receives hypothesis and optional dataset metadata from frontend
+ *   2. Loads prompts from centralized location (../prompts/recommend-panels-prompts.ts)
+ *   3. Calls AI model (google/gemini-2.5-flash) via Lovable AI Gateway
+ *   4. AI scores all available panels (1-10) with explanations
+ *   5. Returns enriched recommendations sorted by relevance score
+ * 
+ * AI MODEL: google/gemini-2.5-flash
+ * PROMPTS: /supabase/functions/prompts/recommend-panels-prompts.ts
+ */
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { buildSystemPrompt, buildUserPrompt } from "../prompts/recommend-panels-prompts.ts";
+import type { Panel } from "../types/panels.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const PANELS = [
+const PANELS: Panel[] = [
   {
     id: "codon_usage",
     name: "Codon Usage Bias",
@@ -70,24 +96,10 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    const systemPrompt = `You are a bioinformatics expert assistant helping researchers choose sequence feature analysis panels.
-
-Available panels for analysis:
-${PANELS.map(p => `- ${p.name} (${p.id}): ${p.description}. Features: ${p.features.join(', ')}. Related to: ${p.keywords.join(', ')}`).join('\n')}
-
-Your task is to analyze the researcher's hypothesis and score ALL panels by relevance. You MUST return all ${PANELS.length} panels with their scores and specific explanations.`;
-
-    const userPrompt = `Based on this research hypothesis, score ALL available panels by relevance:
-
-Hypothesis: "${hypothesis}"
-${sequenceCount ? `Dataset: ${sequenceCount} sequences` : ''}
-${minLength && maxLength ? `Length range: ${minLength}-${maxLength} nt` : ''}
-
-IMPORTANT: You must return ALL ${PANELS.length} panels (${PANELS.map(p => p.id).join(', ')}), each with:
-1. A relevance score from 1-10 based on how relevant it is to this SPECIFIC hypothesis
-2. A specific explanation connecting the panel's features to the biological question
-
-Even if a panel seems less relevant, include it with a lower score and explain why it's less applicable.`;
+    // Build prompts using centralized prompt builder functions
+    // See: /supabase/functions/prompts/recommend-panels-prompts.ts for prompt definitions
+    const systemPrompt = buildSystemPrompt(PANELS);
+    const userPrompt = buildUserPrompt(hypothesis, PANELS, sequenceCount, minLength, maxLength);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',

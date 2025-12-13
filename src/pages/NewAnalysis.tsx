@@ -103,6 +103,25 @@ export default function NewAnalysis() {
     toast({ title: 'Template loaded', description: `Applied "${template.name}"` });
   };
 
+  /**
+   * AI AGENT CALL: Get panel recommendations based on research hypothesis
+   * 
+   * CALLS: usePanelRecommendations.getRecommendations()
+   * WHICH INVOKES: Supabase Edge Function 'recommend-panels'
+   * PROMPTS: /supabase/functions/prompts/recommend-panels-prompts.ts
+   * AI MODEL: google/gemini-2.5-flash
+   * 
+   * PURPOSE: Analyzes user's research hypothesis and recommends which feature panels
+   *          are most relevant for their analysis goals
+   * 
+   * FLOW:
+   *   1. User enters hypothesis in guided mode
+   *   2. This function called when user reaches 'panels' step
+   *   3. Sends hypothesis + dataset metadata to AI
+   *   4. AI returns relevance scores (1-10) for each available panel
+   *   5. Panels with score >= 7 are auto-selected
+   *   6. User sees recommendations with explanations
+   */
   const handleGetRecommendations = async () => {
     const recs = await getRecommendations(
       hypothesis,
@@ -118,7 +137,8 @@ export default function NewAnalysis() {
     }
   };
 
-  // Fetch AI recommendations when entering panels step in guided mode
+  // Automatically fetch AI recommendations when entering panels step in guided mode
+  // This triggers the AI agent call to recommend relevant feature panels
   useEffect(() => {
     if (currentStep === 'panels' && isGuided && hypothesis && aiRecommendations.length === 0) {
       handleGetRecommendations();
