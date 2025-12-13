@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   BarChart3, Download, BookOpen, Info, 
   ChevronDown, TrendingUp, Layers, ArrowUpRight, Play, Loader2
@@ -205,22 +206,24 @@ export default function AnalysisPlayground() {
     length: 400 + i * 50
   }));
   
-  // Sort panels by cached recommendation relevance (highest first)
+  // Get selected panels from analysis data, or use cached recommendations
   const selectedPanels = useMemo(() => {
-    const basePanels = ['codon_usage', 'cai', 'mrna_folding', 'gc_content'];
-    if (cachedRecommendations.length === 0) return basePanels;
+    // First priority: use panels from the database
+    if (realAnalysisData?.selected_panels && realAnalysisData.selected_panels.length > 0) {
+      return realAnalysisData.selected_panels;
+    }
     
-    // Sort based on recommendation order (already sorted by relevance from guided mode)
-    const recommendedOrder = cachedRecommendations
-      .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .map(r => r.panelId);
+    // Second priority: use recommended panels from AI
+    if (cachedRecommendations.length > 0) {
+      const recommendedOrder = cachedRecommendations
+        .sort((a, b) => b.relevanceScore - a.relevanceScore)
+        .map(r => r.panelId);
+      return recommendedOrder;
+    }
     
-    // Return panels in recommendation order, keeping any that aren't in recommendations at the end
-    return [
-      ...recommendedOrder.filter(p => basePanels.includes(p)),
-      ...basePanels.filter(p => !recommendedOrder.includes(p))
-    ];
-  }, [cachedRecommendations]);
+    // Fallback: default panels
+    return ['sequence', 'chemical'];
+  }, [realAnalysisData?.selected_panels, cachedRecommendations]);
   
   // Use real extracted data if available, otherwise fall back to mock data
   const featureData = useMemo(() => {
@@ -265,6 +268,17 @@ export default function AnalysisPlayground() {
 
   const { state: progressState, startComputation, stopComputation, resetComputation } = 
     useComputationProgress(248, selectedPanels);
+    
+  const { 
+    extractFeatures, 
+    isLoading: isExtracting, 
+    error: extractionError,
+    results: extractionResults
+  } = useFeatureExtraction({
+    onProgress: (progress, message) => {
+      console.log(`Feature extraction: ${progress}% - ${message}`);
+    }
+  });
 
   // Load cached recommendations and sequences from navigation state
   useEffect(() => {
@@ -307,11 +321,19 @@ export default function AnalysisPlayground() {
   }, [id]);
 
   const handleStartComputation = async () => {
-    setShowProgress(true);
-    setStatus('computing');
+    if (!id) {
+      toast({ variant: "destructive", title: "No analysis ID found" });
+      return;
+    }
     
-    if (id) {
-      await supabase.from('analyses').update({ status: 'computing' }).eq('id', id);
+    if (storedSequences.length === 0) {
+      toast({ variant: "destructive", title: "No sequences found", description: "Please create a new analysis" });
+      return;
+    }
+    
+    if (selectedPanels.length === 0) {
+      toast({ variant: "destructive", title: "No panels selected", description: "Please select at least one feature panel" });
+      return;
     }
     
     // Prepare panel config for extraction
@@ -347,7 +369,46 @@ export default function AnalysisPlayground() {
       toast({ variant: "destructive", title: "Extraction failed", description: err instanceof Error ? err.message : "Unknown error" });
     }
     
-    if (id) {
+    try {
+      // Prepare panel configuration
+      const panelConfig: Partial<FeaturePanelConfig> = {};
+      selectedPanels.forEach(panelId => {
+        panelConfig[panelId] = { enabled: true };
+      });
+      
+      // Call the feature extraction API
+      const result = await extractFeatures(
+        storedSequences,
+        panelConfig,
+        storedWindowConfig || undefined
+      );
+      
+      if (result && result.success) {
+        // Store results in database
+        await supabase.from('analyses')
+          .update({ 
+            status: 'completed', 
+            computed_at: new Date().toISOString(),
+            results: result as any,
+            selected_panels: selectedPanels 
+          })
+          .eq('id', id);
+        
+        setStatus('completed');
+        setComputationId(Date.now());
+        setRealAnalysisData((prev: any) => ({ ...prev, results: result }));
+        
+        toast({ 
+          title: "Computation complete", 
+          description: `Successfully analyzed ${storedSequences.length} sequences` 
+        });
+      } else {
+        throw new Error('Feature extraction failed - no valid result returned');
+      }
+    } catch (error) {
+      console.error('Computation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
       await supabase.from('analyses')
         .update({ 
           status: 'completed', 
@@ -355,6 +416,15 @@ export default function AnalysisPlayground() {
           selected_panels: selectedPanels 
         })
         .eq('id', id);
+      
+      setStatus('draft');
+      setShowProgress(false);
+      
+      toast({ 
+        variant: "destructive", 
+        title: "Computation failed", 
+        description: errorMessage 
+      });
     }
     setStatus('completed');
     setShowProgress(false);
@@ -579,10 +649,37 @@ export default function AnalysisPlayground() {
                             : "Individual sequence profile with quantile bands"}
                         </CardDescription>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <ChevronDown className="h-4 w-4 mr-1" />
-                        Options
-                      </Button>
+                      <Collapsible open={profileOptionsOpen} onOpenChange={setProfileOptionsOpen}>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            {profileOptionsOpen ? (
+                              <ChevronUp className="h-4 w-4 mr-1" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 mr-1" />
+                            )}
+                            Options
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute right-0 mt-2 z-10 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-4">
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-sm">Display Options</h4>
+                            <div className="space-y-2">
+                              <label htmlFor="profile-quantile" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="profile-quantile" type="checkbox" defaultChecked className="rounded" />
+                                Show quantile bands
+                              </label>
+                              <label htmlFor="profile-median" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="profile-median" type="checkbox" defaultChecked className="rounded" />
+                                Show median line
+                              </label>
+                              <label htmlFor="profile-grid" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="profile-grid" type="checkbox" className="rounded" />
+                                Show grid
+                              </label>
+                            </div>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -700,10 +797,37 @@ export default function AnalysisPlayground() {
                           Distribution of {currentFeature?.name} across all sequences
                         </CardDescription>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <ChevronDown className="h-4 w-4 mr-1" />
-                        Options
-                      </Button>
+                      <Collapsible open={distributionOptionsOpen} onOpenChange={setDistributionOptionsOpen}>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            {distributionOptionsOpen ? (
+                              <ChevronUp className="h-4 w-4 mr-1" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 mr-1" />
+                            )}
+                            Options
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute right-0 mt-2 z-10 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-4">
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-sm">Display Options</h4>
+                            <div className="space-y-2">
+                              <label htmlFor="dist-area" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="dist-area" type="checkbox" defaultChecked className="rounded" />
+                                Show area fill
+                              </label>
+                              <label htmlFor="dist-stats" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="dist-stats" type="checkbox" defaultChecked className="rounded" />
+                                Show summary stats
+                              </label>
+                              <label htmlFor="dist-smooth" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input id="dist-smooth" type="checkbox" className="rounded" />
+                                Smooth curve
+                              </label>
+                            </div>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                     </div>
                   </CardHeader>
                   <CardContent>
