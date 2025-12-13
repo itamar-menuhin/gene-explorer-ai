@@ -328,49 +328,60 @@ function extractFeatures(
   const seq = sequence.toUpperCase().replace(/U/g, 'T');
   const codons = getCodons(seq);
   
-  // GC Content Panel
-  if (enabledPanels.includes('gc_content')) {
+  // Sequence Composition Panel
+  if (enabledPanels.includes('sequence')) {
     features.gc_content = Math.round(calculateGCContent(seq) * 100) / 100;
-    features.gc_skew = Math.round(calculateGCSkew(seq) * 1000) / 1000;
-    features.at_gc_ratio = Math.round(calculateATGCRatio(seq) * 1000) / 1000;
-  }
-  
-  // Nucleotide Frequency Panel
-  if (enabledPanels.includes('nucleotide_freq')) {
-    features.a_freq = Math.round(((seq.match(/A/g) || []).length / seq.length) * 10000) / 100;
-    features.t_freq = Math.round(((seq.match(/T/g) || []).length / seq.length) * 10000) / 100;
-    features.g_freq = Math.round(((seq.match(/G/g) || []).length / seq.length) * 10000) / 100;
-    features.c_freq = Math.round(((seq.match(/C/g) || []).length / seq.length) * 10000) / 100;
+    const aCount = (seq.match(/A/g) || []).length;
+    const tCount = (seq.match(/T/g) || []).length;
+    const atContent = seq.length > 0 ? ((aCount + tCount) / seq.length) * 100 : 0;
+    features.at_content = Math.round(atContent * 100) / 100;
     features.length = seq.length;
+    features.a_count = aCount;
+    features.t_count = tCount;
+    features.g_count = (seq.match(/G/g) || []).length;
+    features.c_count = (seq.match(/C/g) || []).length;
   }
   
-  // Codon Usage Bias Panel
-  if (enabledPanels.includes('codon_usage')) {
+  // Chemical Properties Panel (placeholder - requires amino acid translation)
+  if (enabledPanels.includes('chemical')) {
+    // These features require protein sequence - will be null for now
+    features.isoelectric_point = null;
+    features.instability_index = null;
+    features.molecular_weight = null;
+    features.gravy = null;
+    features.aromaticity_index = null;
+  }
+  
+  // Codon Usage Panel
+  if (enabledPanels.includes('codonUsage')) {
     features.enc = Math.round(calculateENC(codons) * 100) / 100;
-    features.cub = Math.round((61 - calculateENC(codons)) / 41 * 10000) / 100; // Normalized CUB
-    features.rare_codon_freq = Math.round(calculateRareCodonFrequency(codons) * 100) / 100;
-  }
-  
-  // CAI Panel
-  if (enabledPanels.includes('cai')) {
     features.cai = Math.round(calculateCAI(codons, ECOLI_REFERENCE_WEIGHTS) * 1000) / 1000;
-    features.wcai = Math.round(calculateCAI(codons, ECOLI_REFERENCE_WEIGHTS) * 1000) / 1000; // Weighted CAI (same for now)
-  }
-  
-  // mRNA Folding Panel  
-  if (enabledPanels.includes('mrna_folding')) {
-    features.mfe = calculateMFEEstimate(seq);
-    features.structure_entropy = calculateStructureEntropy(seq);
-    features.base_pairing_prob = Math.round((calculateGCContent(seq) / 100) * 0.8 * 1000) / 1000; // Simplified estimate
-  }
-  
-  // Rare Codons Panel
-  if (enabledPanels.includes('rare_codons')) {
     features.rare_codon_freq = Math.round(calculateRareCodonFrequency(codons) * 100) / 100;
-    features.rare_codon_count = codons.filter(c => 
-      ['ATA', 'AGA', 'AGG', 'CGA', 'CGG', 'CTA', 'GGA', 'TTA', 'ACA', 'CCC'].includes(c)
-    ).length;
-    features.stalling_propensity = Math.round(calculateRareCodonFrequency(codons) * 1.5 * 100) / 100;
+    // Additional codon usage features as placeholders
+    features.rcbs = Math.round((61 - calculateENC(codons)) / 41 * 100) / 100;
+    features.cpb = Math.round(calculateRareCodonFrequency(codons) * 0.8 * 100) / 100;
+    features.dcbs = Math.round((61 - calculateENC(codons)) / 41 * 100) / 100;
+  }
+  
+  // Disorder Prediction Panel (placeholder)
+  if (enabledPanels.includes('disorder')) {
+    features.iupred_score = null;
+    features.disorder_regions = null;
+    features.disorder_fraction = null;
+  }
+  
+  // Structure Features Panel (placeholder)
+  if (enabledPanels.includes('structure')) {
+    features.helix_propensity = null;
+    features.sheet_propensity = null;
+    features.coil_propensity = null;
+  }
+  
+  // Motif Analysis Panel (placeholder)
+  if (enabledPanels.includes('motif')) {
+    features.motif_count = null;
+    features.motif_density = null;
+    features.top_motifs = null;
   }
   
   return features;
