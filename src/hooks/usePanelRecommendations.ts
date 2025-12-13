@@ -1,3 +1,26 @@
+/**
+ * Panel Recommendations Hook
+ * 
+ * PURPOSE: React hook to get AI-powered panel recommendations for feature analysis
+ * 
+ * CALLS: 
+ *   - Supabase Edge Function: 'recommend-panels' (/supabase/functions/recommend-panels/index.ts)
+ *   - AI Model: google/gemini-2.5-flash (via Lovable AI Gateway)
+ * 
+ * USED IN:
+ *   - NewAnalysis page (src/pages/NewAnalysis.tsx) - Guided analysis workflow
+ * 
+ * FLOW:
+ *   1. User enters research hypothesis in UI
+ *   2. Component calls getRecommendations(hypothesis, metadata)
+ *   3. Hook invokes Supabase edge function with hypothesis
+ *   4. Edge function sends hypothesis to AI model using prompts from /supabase/functions/prompts/
+ *   5. AI returns relevance scores (1-10) for all available panels
+ *   6. Hook returns recommendations sorted by relevance
+ * 
+ * PROMPTS LOCATION: /supabase/functions/prompts/recommend-panels-prompts.ts
+ */
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
