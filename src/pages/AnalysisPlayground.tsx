@@ -135,7 +135,7 @@ export default function AnalysisPlayground() {
           setAnalysisName(data?.name ?? 'Untitled Analysis');
           setHypothesis(data?.hypothesis ?? null);
           setShareToken(data?.share_token ?? null);
-          setStatus(data?.status ?? 'draft');
+          setStatus((data?.status as 'draft' | 'computing' | 'completed') ?? 'draft');
         }
       } catch (err) {
         console.error('Failed to fetch analysis:', err);
