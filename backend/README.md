@@ -63,13 +63,20 @@ Content-Type: application/json
 
 ## Deployment
 
-Set the `PYTHON_BACKEND_URL` environment variable in your Lovable Cloud project to point to your deployed backend:
+After deploying the backend, set the `PYTHON_BACKEND_URL` environment variable in Supabase Edge Functions:
 
+**In Supabase Dashboard:**
+1. Go to Edge Functions → extract-features → Settings
+2. Add secret: `PYTHON_BACKEND_URL=https://your-backend.railway.app`
+
+**For local development (.env file):**
 ```
-PYTHON_BACKEND_URL=https://your-backend.railway.app
+VITE_PYTHON_BACKEND_URL=http://localhost:8080
 ```
 
 ### Deploy to Railway
+
+✅ **Successfully deployed!** See: https://railway.com/project/e27d711a-0387-4c88-9776-27fe3f84ebd3
 
 1. Push this `backend/` folder to a Git repository
 2. Create a new Railway project

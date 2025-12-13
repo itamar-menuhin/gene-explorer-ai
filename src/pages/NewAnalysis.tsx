@@ -35,44 +35,29 @@ interface Panel {
   features: string[];
 }
 
-const mockPanels: Panel[] = [
-  {
-    id: "codon_usage",
-    name: "Codon Usage Bias",
-    description: "Measures the deviation from uniform codon usage, including ENC, CUB, and RSCU values.",
-    relevance: "Highly relevant for expression analysis—codon bias directly impacts translation efficiency.",
-    citations: 1240,
-    cost: "low",
-    features: ["ENC (Effective Number of Codons)", "CUB (Codon Usage Bias)", "RSCU (Relative Synonymous Codon Usage)"],
-  },
-  {
-    id: "cai",
-    name: "Codon Adaptation Index",
-    description: "Quantifies how well a gene's codon usage matches highly expressed reference genes.",
-    relevance: "Strong predictor of expression levels—matches your hypothesis about stress genes.",
-    citations: 890,
-    cost: "low",
-    features: ["CAI Score", "wCAI (Weighted CAI)", "Reference Set Comparison"],
-  },
-  {
-    id: "mrna_folding",
-    name: "mRNA Secondary Structure",
-    description: "Predicts RNA folding and calculates minimum free energy profiles.",
-    relevance: "5' UTR structure affects ribosome binding; relevant for translation initiation.",
-    citations: 650,
-    cost: "high",
-    features: ["MFE (Minimum Free Energy)", "Base Pairing Probability", "Structure Entropy"],
-  },
-  {
-    id: "gc_content",
-    name: "GC Content Analysis",
-    description: "Calculates GC content and skew across sequence positions.",
-    relevance: "GC content correlates with stability and can indicate genomic features.",
-    citations: 2100,
-    cost: "low",
-    features: ["GC%", "GC Skew", "AT/GC Ratio"],
-  },
-];
+// Convert FEATURE_PANELS to Panel format for display
+const convertToDisplayPanels = (): Panel[] => {
+  // Citation counts for different panel types (approximate from literature)
+  const citationMap: Record<string, number> = {
+    'sequence': 2100,
+    'chemical': 1500,
+    'codonUsage': 1240,
+    'disorder': 890,
+    'structure': 650,
+    'motif': 500,
+  };
+  
+  return FEATURE_PANELS.map(panel => ({
+    id: panel.id,
+    name: panel.name,
+    description: panel.description,
+    citations: citationMap[panel.id] || 500,
+    cost: panel.category === 'structure' || panel.category === 'regulatory' ? 'high' as const : 'low' as const,
+    features: panel.features.map(f => f.name),
+  }));
+};
+
+const availablePanels: Panel[] = convertToDisplayPanels();
 
 const costBadge = {
   low: { label: "Fast", className: "bg-emerald-100 text-emerald-700" },
@@ -347,7 +332,7 @@ export default function NewAnalysis() {
             <div className="space-y-4">
               {(isGuided && aiRecommendations.length > 0 ? 
                 [...aiRecommendations].sort((a, b) => b.relevanceScore - a.relevanceScore).map((rec, index) => {
-                  const panel = mockPanels.find(p => p.id === rec.panelId) || {
+                  const panel = availablePanels.find(p => p.id === rec.panelId) || {
                     id: rec.panelId,
                     name: rec.panel?.name || rec.panelId,
                     description: rec.panel?.description || '',
@@ -408,7 +393,7 @@ export default function NewAnalysis() {
                     </Card>
                   );
                 })
-              : mockPanels.map((panel, index) => (
+              : availablePanels.map((panel, index) => (
                 <Card 
                   key={panel.id}
                   variant={selectedPanels.includes(panel.id) ? "ocean" : "interactive"}

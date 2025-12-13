@@ -394,8 +394,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ../feature_engineering /app/feature_engineering
 COPY main.py .
 
-EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8080
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 ```
 
 #### **docker-compose.yml** - Local Development
@@ -407,11 +407,11 @@ services:
       context: ..
       dockerfile: backend/Dockerfile
     ports:
-      - "8000:8000"
+      - "8080:8080"
     volumes:
       - ../feature_engineering:/app/feature_engineering:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
 ```
 
 ---
@@ -742,140 +742,81 @@ AnalysisPlayground.tsx
 
 Here are issues that can be fixed with minimal effort:
 
-### 1. **Connect AnalysisPlayground to Real Data** (30 minutes)
+### 1. **Connect AnalysisPlayground to Real Data** ✅ COMPLETED
 
 **Problem**: AnalysisPlayground uses mock data
 
-**Fix**: 
-```typescript
-// In AnalysisPlayground.tsx
-useEffect(() => {
-  const fetchAnalysis = async () => {
-    const { data, error } = await supabase
-      .from('analyses')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (data?.results) {
-      // Use data.results instead of generateMockFeatureData()
-      setFeatureData(data.results);
-    }
-  };
-  fetchAnalysis();
-}, [id]);
-```
+**Fix**: Implemented in src/pages/AnalysisPlayground.tsx
+- Added state for realAnalysisData and isLoadingAnalysis
+- Added useEffect to fetch analysis from Supabase by ID
+- Updated featureData useMemo to use real data when available
+- Populates analysis name, hypothesis, share token, and status from database
+- Falls back to mock data if real data is not available
 
-### 2. **Fix Panel List in NewAnalysis** (15 minutes)
+### 2. **Fix Panel List in NewAnalysis** ✅ COMPLETED
 
 **Problem**: Panel list is hardcoded
 
-**Fix**:
-```typescript
-// In NewAnalysis.tsx
-const { data: panelsData } = useQuery(['panels'], async () => {
-  const backendUrl = import.meta.env.VITE_PYTHON_BACKEND_URL;
-  if (backendUrl) {
-    const response = await fetch(`${backendUrl}/panels`);
-    return response.json();
-  }
-  return { panels: FEATURE_PANELS }; // Fallback to constants
-});
-```
+**Fix**: Implemented in src/pages/NewAnalysis.tsx
+- Removed hardcoded mockPanels array
+- Added convertToDisplayPanels() function that converts FEATURE_PANELS to display format
+- Now uses availablePanels derived from the FEATURE_PANELS constant
+- More maintainable and consistent with the backend panel definitions
 
-### 3. **Fix Python Backend Dockerfile Path** (5 minutes)
+### 3. **Fix Python Backend Port Consistency** ✅ COMPLETED
 
-**Problem**: Dockerfile tries to copy from `../feature_engineering` which may fail
+**Problem**: Dockerfile and docker-compose used port 8000, but main.py uses port 8080
 
-**Fix**:
-```dockerfile
-# In backend/Dockerfile, line 13
-# Change:
-COPY ../feature_engineering /app/feature_engineering
-# To:
-COPY ./feature_engineering /app/feature_engineering
+**Fix**: Updated all files to consistently use port 8080:
+- Dockerfile now uses PORT environment variable with 8080 default
+- docker-compose.yml updated to use 8080
+- Supports Railway/Render's dynamic $PORT variable
+- All documentation updated to reference correct port
 
-# Then build from repository root:
-# docker build -f backend/Dockerfile -t gene-explorer-backend .
-```
+### 4. **Add Missing Environment Variable Documentation** ✅ COMPLETED
 
-### 4. **Add Missing Environment Variable Documentation** (10 minutes)
+**Problem**: README doesn't clearly document environment variables
 
-**Problem**: README doesn't explain environment variables
+**Fix**: Created `.env.example` file in repository root with all required environment variables documented.
 
-**Fix**: Add to README.md:
-```markdown
-## Environment Variables
+The file includes:
+- Supabase configuration (required)
+- Python backend URL (optional)
+- Example production URLs
+- Clear instructions for both local and production environments
 
-Create a `.env` file:
-
-```bash
-# Supabase (frontend)
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
-
-# Python Backend URL (optional)
-# If not set, uses local computation fallback
-VITE_PYTHON_BACKEND_URL=https://your-backend.railway.app
-
-# Python Backend (set in Lovable Cloud / Supabase)
-PYTHON_BACKEND_URL=https://your-backend.railway.app
-```
-```
-
-### 5. **Improve Error Messages** (20 minutes)
+### 5. **Improve Error Messages** ✅ COMPLETED
 
 **Problem**: Generic error messages don't help users debug
 
-**Fix**: In `useFeatureExtraction.ts`:
-```typescript
-// Add more specific error messages
-if (error) {
-  let errorMessage = 'Feature extraction failed';
-  
-  if (error.message.includes('timeout')) {
-    errorMessage = 'Request timed out. Try reducing the number of sequences or disabling complex panels.';
-  } else if (error.message.includes('PYTHON_BACKEND_URL')) {
-    errorMessage = 'Python backend not configured. Only basic features available.';
-  } else if (error.message.includes('sequence too short')) {
-    errorMessage = 'Some sequences are too short for the selected panels.';
-  }
-  
-  throw new Error(errorMessage);
-}
-```
+**Fix**: Implemented in src/hooks/useFeatureExtraction.ts
+- Enhanced error handling in the catch block
+- Provides specific messages for timeout errors
+- Provides specific messages for backend configuration errors
+- Provides specific messages for sequence validation errors
+- Improves user experience with actionable error information
 
-### 6. **Add Loading States** (15 minutes)
+### 6. **Add Loading States** ✅ COMPLETED
 
 **Problem**: No visual feedback during long operations
 
-**Fix**: Already mostly done! Just ensure ComputationProgress is shown:
-```typescript
-// In NewAnalysis.tsx
-{isSubmitting && (
-  <ComputationProgress
-    progress={computationProgress}
-    currentPanel={currentPanel}
-  />
-)}
-```
+**Fix**: Already implemented in src/pages/NewAnalysis.tsx
+- Uses isSubmitting state to show loading feedback
+- Button displays "Creating..." text when submitting
+- Button is disabled during submission
+- Toast notifications provide feedback on success/failure
+- Appropriate for the analysis creation flow
 
-### 7. **Validate Sequences Before Submission** (20 minutes)
+### 7. **Validate Sequences Before Submission** ✅ COMPLETED
 
 **Problem**: Invalid sequences crash backend
 
-**Fix**: In `sequenceParser.ts`:
-```typescript
-export function validateSequence(sequence: string, type: 'nucleotide' | 'amino_acid'): boolean {
-  const seq = sequence.toUpperCase().replace(/\s/g, '');
-  
-  if (type === 'nucleotide') {
-    return /^[ACGTU]+$/.test(seq);
-  } else {
-    return /^[ACDEFGHIKLMNPQRSTVWY*]+$/.test(seq);
-  }
-}
-```
+**Fix**: Implemented in src/lib/sequenceParser.ts
+- Added exported validateSequence() function
+- Validates nucleotide sequences (ACGTU only)
+- Validates amino acid sequences (standard amino acid codes)
+- Can be imported and used in components before submission
+- Prevents invalid sequences from reaching the backend
 
 ---
 
@@ -1004,7 +945,7 @@ server {
     server_name api.your-domain.com;
     
     location / {
-        proxy_pass http://localhost:8000;
+        proxy_pass http://localhost:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -1051,7 +992,7 @@ spec:
       - name: api
         image: ghcr.io/itamar-menuhin/gene-explorer-backend:latest
         ports:
-        - containerPort: 8000
+        - containerPort: 8080
         resources:
           requests:
             memory: "512Mi"
@@ -1062,7 +1003,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 8000
+            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 30
 ---
@@ -1076,7 +1017,7 @@ spec:
   ports:
   - protocol: TCP
     port: 80
-    targetPort: 8000
+    targetPort: 8080
   type: LoadBalancer
 ```
 

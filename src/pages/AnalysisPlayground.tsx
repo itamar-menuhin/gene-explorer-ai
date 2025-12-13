@@ -108,8 +108,44 @@ export default function AnalysisPlayground() {
   
   // Cached AI recommendations from guided mode
   const [cachedRecommendations, setCachedRecommendations] = useState<PanelRecommendation[]>([]);
+  
+  // Real analysis data from database
+  const [realAnalysisData, setRealAnalysisData] = useState<any>(null);
+  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
 
   const currentFeature = features.find(f => f.id === selectedFeature);
+  
+  // Fetch real analysis data from database
+  useEffect(() => {
+    const fetchAnalysis = async () => {
+      if (!id) return;
+      
+      setIsLoadingAnalysis(true);
+      try {
+        const { data, error } = await supabase
+          .from('analyses')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching analysis:', error);
+        } else if (data) {
+          setRealAnalysisData(data);
+          setAnalysisName(data?.name ?? 'Untitled Analysis');
+          setHypothesis(data?.hypothesis ?? null);
+          setShareToken(data?.share_token ?? null);
+          setStatus(data?.status ?? 'draft');
+        }
+      } catch (err) {
+        console.error('Failed to fetch analysis:', err);
+      } finally {
+        setIsLoadingAnalysis(false);
+      }
+    };
+    
+    fetchAnalysis();
+  }, [id]);
 
   // Get relevance from cached AI recommendations
   const getFeatureRelevance = (featureId?: string, panel?: string, hypothesis?: string | null): string => {
@@ -165,11 +201,17 @@ export default function AnalysisPlayground() {
     ];
   }, [cachedRecommendations]);
   
-  // Use computationId as a seed for reproducible but unique results - null until computed
+  // Use real data if available, otherwise fall back to mock data
   const featureData = useMemo(() => {
+    // If we have real analysis data with results, use it
+    if (realAnalysisData?.results) {
+      return realAnalysisData.results;
+    }
+    
+    // Otherwise, use mock data if computation was triggered
     if (computationId === null) return [];
     return generateMockFeatureData(mockSequences, selectedPanels);
-  }, [computationId, selectedPanels]);
+  }, [realAnalysisData, computationId, selectedPanels, mockSequences]);
   
   const featureNames = getAllFeatureNames(selectedPanels);
   

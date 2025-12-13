@@ -101,7 +101,19 @@ export function useFeatureExtraction(options: UseFeatureExtractionOptions = {}) 
       return response;
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      let errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      
+      // Provide more specific error messages
+      if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+        errorMessage = 'Request timed out. Try reducing the number of sequences or disabling complex panels.';
+      } else if (errorMessage.includes('PYTHON_BACKEND_URL') || errorMessage.includes('backend')) {
+        errorMessage = 'Python backend not configured. Only basic features available.';
+      } else if (errorMessage.includes('sequence too short') || errorMessage.includes('invalid sequence')) {
+        errorMessage = 'Some sequences are too short or invalid for the selected panels.';
+      } else if (errorMessage === 'Feature extraction failed') {
+        errorMessage = 'Feature extraction failed. Please check your sequences and try again.';
+      }
+      
       setState(prev => ({
         ...prev,
         isLoading: false,
