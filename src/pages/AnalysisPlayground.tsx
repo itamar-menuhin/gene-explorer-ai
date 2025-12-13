@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   BarChart3, Download, BookOpen, Info, 
-  ChevronDown, ChevronUp, TrendingUp, Layers, ArrowUpRight, Play
+  ChevronDown, TrendingUp, Layers, ArrowUpRight, Play, Loader2
 } from "lucide-react";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -22,9 +22,8 @@ import { ComputationProgress } from "@/components/analysis/ComputationProgress";
 import { useComputationProgress } from "@/hooks/useComputationProgress";
 import { generateMockFeatureData, getAllFeatureNames, FeatureData } from "@/lib/csvExport";
 import { supabase } from "@/integrations/supabase/client";
-import { useFeatureExtraction } from "@/hooks/useFeatureExtraction";
 import { useToast } from "@/hooks/use-toast";
-import type { SequenceInput, FeaturePanelConfig } from "@/types/featureExtraction";
+import { useFeatureExtraction } from "@/hooks/useFeatureExtraction";
 
 // Mock data for visualizations
 const generateProfileData = () => {
@@ -118,13 +117,23 @@ export default function AnalysisPlayground() {
   const [realAnalysisData, setRealAnalysisData] = useState<any>(null);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   
-  // Options visibility state
-  const [profileOptionsOpen, setProfileOptionsOpen] = useState(false);
-  const [distributionOptionsOpen, setDistributionOptionsOpen] = useState(false);
+  // Real feature extraction results
+  const [extractedResults, setExtractedResults] = useState<any>(null);
   
-  // Stored sequences and window config
-  const [storedSequences, setStoredSequences] = useState<SequenceInput[]>([]);
-  const [storedWindowConfig, setStoredWindowConfig] = useState<any>(null);
+  // Sequences from location state (passed from NewAnalysis)
+  const [sequences, setSequences] = useState<Array<{id: string; sequence: string; name?: string}>>([]);
+  
+  // Feature extraction hook
+  const { 
+    extractFeatures, 
+    isLoading: isExtracting, 
+    progress: extractionProgress,
+    error: extractionError 
+  } = useFeatureExtraction({
+    onProgress: (progress, message) => {
+      console.log(`Extraction progress: ${progress}% - ${message}`);
+    }
+  });
 
   const currentFeature = features.find(f => f.id === selectedFeature);
   
@@ -148,15 +157,7 @@ export default function AnalysisPlayground() {
           setAnalysisName(data?.name ?? 'Untitled Analysis');
           setHypothesis(data?.hypothesis ?? null);
           setShareToken(data?.share_token ?? null);
-          setStatus(data?.status ?? 'draft');
-          
-          // Load sequences and window config from database if not already loaded from state
-          if (data.sequences && storedSequences.length === 0) {
-            setStoredSequences(data.sequences as SequenceInput[]);
-          }
-          if (data.window_config && !storedWindowConfig) {
-            setStoredWindowConfig(data.window_config);
-          }
+          setStatus((data?.status as 'draft' | 'computing' | 'completed') ?? 'draft');
         }
       } catch (err) {
         console.error('Failed to fetch analysis:', err);
@@ -224,8 +225,23 @@ export default function AnalysisPlayground() {
     return ['sequence', 'chemical'];
   }, [realAnalysisData?.selected_panels, cachedRecommendations]);
   
-  // Use real data if available, otherwise fall back to mock data
+  // Use real extracted data if available, otherwise fall back to mock data
   const featureData = useMemo(() => {
+    // If we have extracted results from edge function, use them
+    if (extractedResults?.results) {
+      return extractedResults.results.map((r: any) => {
+        // Find the sequence to get length
+        const seq = sequences.find(s => s.id === r.sequenceId);
+        return {
+          sequenceId: r.sequenceId,
+          sequenceName: r.sequenceName || r.sequenceId,
+          sequenceLength: seq?.sequence?.length || 0,
+          features: r.features || {},
+          annotations: {}
+        };
+      });
+    }
+    
     // If we have real analysis data with results, use it
     if (realAnalysisData?.results) {
       return realAnalysisData.results;
@@ -234,9 +250,15 @@ export default function AnalysisPlayground() {
     // Otherwise, use mock data if computation was triggered
     if (computationId === null) return [];
     return generateMockFeatureData(mockSequences, selectedPanels);
-  }, [realAnalysisData, computationId, selectedPanels, mockSequences]);
+  }, [extractedResults, realAnalysisData, computationId, selectedPanels, mockSequences, sequences]);
   
-  const featureNames = getAllFeatureNames(selectedPanels);
+  // Get feature names from extracted results or fallback to panel-based names
+  const featureNames = useMemo(() => {
+    if (extractedResults?.results?.[0]?.features) {
+      return Object.keys(extractedResults.results[0].features);
+    }
+    return getAllFeatureNames(selectedPanels);
+  }, [extractedResults, selectedPanels]);
   
   const mockCitations = [
     { title: 'The effective number of codons used in a gene', authors: 'Wright F.', year: 1990, journal: 'Gene', doi: '10.1016/0378-1119(90)90491-9' },
@@ -262,17 +284,15 @@ export default function AnalysisPlayground() {
   useEffect(() => {
     const state = location.state as { 
       aiRecommendations?: PanelRecommendation[];
-      sequences?: SequenceInput[];
-      windowConfig?: any;
+      sequences?: Array<{id: string; sequence: string; name?: string}>;
     } | null;
+    
     if (state?.aiRecommendations) {
       setCachedRecommendations(state.aiRecommendations);
     }
-    if (state?.sequences) {
-      setStoredSequences(state.sequences);
-    }
-    if (state?.windowConfig) {
-      setStoredWindowConfig(state.windowConfig);
+    if (state?.sequences && state.sequences.length > 0) {
+      setSequences(state.sequences);
+      console.log(`Loaded ${state.sequences.length} sequences from navigation state`);
     }
   }, [location.state]);
 
@@ -316,11 +336,38 @@ export default function AnalysisPlayground() {
       return;
     }
     
-    setShowProgress(true);
-    setStatus('computing');
+    // Prepare panel config for extraction
+    const panelConfig: Record<string, { enabled: boolean }> = {};
+    selectedPanels.forEach(panelId => {
+      panelConfig[panelId] = { enabled: true };
+    });
     
-    // Update status in database
-    await supabase.from('analyses').update({ status: 'computing' }).eq('id', id);
+    // Check if we have sequences to process
+    if (sequences.length === 0) {
+      toast({ variant: "destructive", title: "No sequences", description: "Please upload sequences first" });
+      setShowProgress(false);
+      setStatus('draft');
+      return;
+    }
+    
+    console.log(`Starting extraction for ${sequences.length} sequences with panels:`, selectedPanels);
+    
+    try {
+      // Call the real extract-features edge function
+      const result = await extractFeatures(sequences, panelConfig);
+      
+      if (result && result.success) {
+        setExtractedResults(result);
+        setComputationId(Date.now());
+        toast({ title: "Computation complete", description: `Extracted features for ${result.results?.length || 0} sequences` });
+      } else {
+        const errorMsg = result?.errors?.[0]?.error || "Unknown error";
+        toast({ variant: "destructive", title: "Extraction failed", description: errorMsg });
+      }
+    } catch (err) {
+      console.error('Feature extraction error:', err);
+      toast({ variant: "destructive", title: "Extraction failed", description: err instanceof Error ? err.message : "Unknown error" });
+    }
     
     try {
       // Prepare panel configuration
@@ -363,7 +410,11 @@ export default function AnalysisPlayground() {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       await supabase.from('analyses')
-        .update({ status: 'draft' })
+        .update({ 
+          status: 'completed', 
+          computed_at: new Date().toISOString(),
+          selected_panels: selectedPanels 
+        })
         .eq('id', id);
       
       setStatus('draft');
@@ -375,6 +426,8 @@ export default function AnalysisPlayground() {
         description: errorMessage 
       });
     }
+    setStatus('completed');
+    setShowProgress(false);
   };
 
   const handleStopComputation = () => {
@@ -451,10 +504,12 @@ export default function AnalysisPlayground() {
         {/* Stats Bar */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           {[
-            { label: "Sequences", value: "248" },
-            { label: "Panels Computed", value: "4" },
-            { label: "Features Available", value: "12" },
-            { label: "Runtime", value: "3m 24s" },
+            { label: "Sequences", value: featureData.length > 0 ? featureData.length.toString() : (sequences.length || realAnalysisData?.sequence_count || 0).toString() },
+            { label: "Panels Computed", value: selectedPanels.length.toString() },
+            { label: "Features Available", value: featureNames.length.toString() },
+            { label: "Runtime", value: extractedResults?.metadata?.computeTimeMs 
+              ? `${(extractedResults.metadata.computeTimeMs / 1000).toFixed(1)}s` 
+              : "—" },
           ].map((stat) => (
             <Card key={stat.label} variant="glass">
               <CardContent className="p-4">
