@@ -14,13 +14,7 @@
  * 6. Results displayed to user with panel recommendations
  */
 
-interface Panel {
-  id: string;
-  name: string;
-  description: string;
-  features: string[];
-  keywords: string[];
-}
+import type { Panel } from "../types/panels.ts";
 
 /**
  * Builds the system prompt for the panel recommendation AI

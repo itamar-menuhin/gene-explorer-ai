@@ -24,13 +24,14 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { buildSystemPrompt, buildUserPrompt } from "../prompts/recommend-panels-prompts.ts";
+import type { Panel } from "../types/panels.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const PANELS = [
+const PANELS: Panel[] = [
   {
     id: "codon_usage",
     name: "Codon Usage Bias",
