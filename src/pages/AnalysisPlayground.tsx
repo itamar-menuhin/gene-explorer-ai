@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   BarChart3, Download, BookOpen, Info, 
-  ChevronDown, TrendingUp, Layers, ArrowUpRight, Play
+  ChevronDown, ChevronUp, TrendingUp, Layers, ArrowUpRight, Play
 } from "lucide-react";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -112,6 +113,10 @@ export default function AnalysisPlayground() {
   // Real analysis data from database
   const [realAnalysisData, setRealAnalysisData] = useState<any>(null);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
+  
+  // Options visibility state
+  const [profileOptionsOpen, setProfileOptionsOpen] = useState(false);
+  const [distributionOptionsOpen, setDistributionOptionsOpen] = useState(false);
 
   const currentFeature = features.find(f => f.id === selectedFeature);
   
@@ -498,10 +503,37 @@ export default function AnalysisPlayground() {
                             : "Individual sequence profile with quantile bands"}
                         </CardDescription>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <ChevronDown className="h-4 w-4 mr-1" />
-                        Options
-                      </Button>
+                      <Collapsible open={profileOptionsOpen} onOpenChange={setProfileOptionsOpen}>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            {profileOptionsOpen ? (
+                              <ChevronUp className="h-4 w-4 mr-1" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 mr-1" />
+                            )}
+                            Options
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute right-6 top-16 z-10 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-4">
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-sm">Display Options</h4>
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2 text-sm">
+                                <input type="checkbox" defaultChecked className="rounded" />
+                                Show quantile bands
+                              </label>
+                              <label className="flex items-center gap-2 text-sm">
+                                <input type="checkbox" defaultChecked className="rounded" />
+                                Show median line
+                              </label>
+                              <label className="flex items-center gap-2 text-sm">
+                                <input type="checkbox" className="rounded" />
+                                Show grid
+                              </label>
+                            </div>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -619,10 +651,37 @@ export default function AnalysisPlayground() {
                           Distribution of {currentFeature?.name} across all sequences
                         </CardDescription>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <ChevronDown className="h-4 w-4 mr-1" />
-                        Options
-                      </Button>
+                      <Collapsible open={distributionOptionsOpen} onOpenChange={setDistributionOptionsOpen}>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            {distributionOptionsOpen ? (
+                              <ChevronUp className="h-4 w-4 mr-1" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 mr-1" />
+                            )}
+                            Options
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="absolute right-6 top-16 z-10 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-4">
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-sm">Display Options</h4>
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2 text-sm">
+                                <input type="checkbox" defaultChecked className="rounded" />
+                                Show area fill
+                              </label>
+                              <label className="flex items-center gap-2 text-sm">
+                                <input type="checkbox" defaultChecked className="rounded" />
+                                Show summary stats
+                              </label>
+                              <label className="flex items-center gap-2 text-sm">
+                                <input type="checkbox" className="rounded" />
+                                Smooth curve
+                              </label>
+                            </div>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                     </div>
                   </CardHeader>
                   <CardContent>
