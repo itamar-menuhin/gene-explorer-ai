@@ -62,28 +62,59 @@ export function useFeatureExtraction(options: UseFeatureExtractionOptions = {}) 
         throw new Error('No feature panels selected');
       }
 
-      onProgress?.(10, 'Preparing sequences...');
-      setState(prev => ({ ...prev, progress: 10 }));
+      // Batch sequences to avoid CPU timeout (500 sequences per batch)
+      const BATCH_SIZE = 500;
+      const batches: SequenceInput[][] = [];
+      for (let i = 0; i < sequences.length; i += BATCH_SIZE) {
+        batches.push(sequences.slice(i, i + BATCH_SIZE));
+      }
 
-      // Call the edge function
-      const { data, error } = await supabase.functions.invoke('extract-features', {
-        body: {
-          sequences,
-          panels,
-          window: windowConfig,
-          referenceSet,
+      onProgress?.(5, `Processing ${sequences.length} sequences in ${batches.length} batch(es)...`);
+      setState(prev => ({ ...prev, progress: 5 }));
+
+      const allResults: Array<GlobalFeatureResult | WindowedFeatureResult> = [];
+      let mode: 'global' | 'windowed' = 'global';
+      let totalComputeTime = 0;
+
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        const progressPercent = 10 + Math.round((i / batches.length) * 85);
+        
+        onProgress?.(progressPercent, `Processing batch ${i + 1}/${batches.length}...`);
+        setState(prev => ({ ...prev, progress: progressPercent }));
+
+        const { data, error } = await supabase.functions.invoke('extract-features', {
+          body: {
+            sequences: batch,
+            panels,
+            window: windowConfig,
+            referenceSet,
+          },
+        });
+
+        if (error) {
+          throw new Error(error.message || `Batch ${i + 1} failed`);
+        }
+
+        if (!data.success) {
+          throw new Error(data.error || `Batch ${i + 1} failed`);
+        }
+
+        mode = data.mode;
+        allResults.push(...data.results);
+        totalComputeTime += data.metadata?.computeTimeMs || 0;
+      }
+
+      const response: FeatureExtractionResponse = {
+        success: true,
+        mode,
+        results: allResults,
+        metadata: {
+          totalSequences: sequences.length,
+          panelsComputed: enabledPanels,
+          computeTimeMs: totalComputeTime,
         },
-      });
-
-      if (error) {
-        throw new Error(error.message || 'Feature extraction failed');
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Feature extraction failed');
-      }
-
-      const response = data as FeatureExtractionResponse;
+      };
 
       // Notify about completed panels
       enabledPanels.forEach(panelId => {
@@ -112,6 +143,8 @@ export function useFeatureExtraction(options: UseFeatureExtractionOptions = {}) 
         errorMessage = 'Some sequences are too short or invalid for the selected panels.';
       } else if (errorMessage === 'Feature extraction failed') {
         errorMessage = 'Feature extraction failed. Please check your sequences and try again.';
+      } else if (errorMessage.includes('WORKER_LIMIT') || errorMessage.includes('compute resources')) {
+        errorMessage = 'Server resource limit reached. Try processing fewer sequences at once.';
       }
       
       setState(prev => ({

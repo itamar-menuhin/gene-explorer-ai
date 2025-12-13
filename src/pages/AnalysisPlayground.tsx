@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   BarChart3, Download, BookOpen, Info, 
-  ChevronDown, TrendingUp, Layers, ArrowUpRight, Play, Loader2
+  ChevronDown, ChevronUp, TrendingUp, Layers, ArrowUpRight, Play, Loader2
 } from "lucide-react";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -24,6 +24,7 @@ import { generateMockFeatureData, getAllFeatureNames, FeatureData } from "@/lib/
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useFeatureExtraction } from "@/hooks/useFeatureExtraction";
+import type { FeaturePanelConfig } from "@/types/featureExtraction";
 
 // Mock data for visualizations
 const generateProfileData = () => {
@@ -90,7 +91,7 @@ const features = [
   },
 ];
 
-const sequences = [
+const sequenceOptions = [
   { id: "all", name: "All sequences (248)" },
   { id: "gene_001", name: "GENE_001 - Stress response factor" },
   { id: "gene_002", name: "GENE_002 - Heat shock protein" },
@@ -109,6 +110,8 @@ export default function AnalysisPlayground() {
   const [status, setStatus] = useState<'draft' | 'computing' | 'completed'>('draft');
   const [showProgress, setShowProgress] = useState(false);
   const [computationId, setComputationId] = useState<number | null>(null);
+  const [profileOptionsOpen, setProfileOptionsOpen] = useState(false);
+  const [distributionOptionsOpen, setDistributionOptionsOpen] = useState(false);
   
   // Cached AI recommendations from guided mode
   const [cachedRecommendations, setCachedRecommendations] = useState<PanelRecommendation[]>([]);
@@ -121,7 +124,8 @@ export default function AnalysisPlayground() {
   const [extractedResults, setExtractedResults] = useState<any>(null);
   
   // Sequences from location state (passed from NewAnalysis)
-  const [sequences, setSequences] = useState<Array<{id: string; sequence: string; name?: string}>>([]);
+  const [storedSequences, setStoredSequences] = useState<Array<{id: string; sequence: string; name?: string}>>([]);
+  const [storedWindowConfig, setStoredWindowConfig] = useState<any>(null);
   
   // Feature extraction hook
   const { 
@@ -199,7 +203,7 @@ export default function AnalysisPlayground() {
   };
   
   // Generate mock data for export - regenerated on each computation
-  const mockSequences = sequences.slice(1).map((s, i) => ({
+  const mockSequences = sequenceOptions.slice(1).map((s, i) => ({
     id: s.id,
     name: s.name.split(' - ')[0],
     sequence: 'ATGC'.repeat(100),
@@ -231,7 +235,7 @@ export default function AnalysisPlayground() {
     if (extractedResults?.results) {
       return extractedResults.results.map((r: any) => {
         // Find the sequence to get length
-        const seq = sequences.find(s => s.id === r.sequenceId);
+        const seq = storedSequences.find(s => s.id === r.sequenceId);
         return {
           sequenceId: r.sequenceId,
           sequenceName: r.sequenceName || r.sequenceId,
@@ -250,7 +254,7 @@ export default function AnalysisPlayground() {
     // Otherwise, use mock data if computation was triggered
     if (computationId === null) return [];
     return generateMockFeatureData(mockSequences, selectedPanels);
-  }, [extractedResults, realAnalysisData, computationId, selectedPanels, mockSequences, sequences]);
+  }, [extractedResults, realAnalysisData, computationId, selectedPanels, mockSequences, storedSequences]);
   
   // Get feature names from extracted results or fallback to panel-based names
   const featureNames = useMemo(() => {
@@ -268,17 +272,6 @@ export default function AnalysisPlayground() {
 
   const { state: progressState, startComputation, stopComputation, resetComputation } = 
     useComputationProgress(248, selectedPanels);
-    
-  const { 
-    extractFeatures, 
-    isLoading: isExtracting, 
-    error: extractionError,
-    results: extractionResults
-  } = useFeatureExtraction({
-    onProgress: (progress, message) => {
-      console.log(`Feature extraction: ${progress}% - ${message}`);
-    }
-  });
 
   // Load cached recommendations and sequences from navigation state
   useEffect(() => {
@@ -291,7 +284,7 @@ export default function AnalysisPlayground() {
       setCachedRecommendations(state.aiRecommendations);
     }
     if (state?.sequences && state.sequences.length > 0) {
-      setSequences(state.sequences);
+      setStoredSequences(state.sequences);
       console.log(`Loaded ${state.sequences.length} sequences from navigation state`);
     }
   }, [location.state]);
@@ -343,18 +336,18 @@ export default function AnalysisPlayground() {
     });
     
     // Check if we have sequences to process
-    if (sequences.length === 0) {
+    if (storedSequences.length === 0) {
       toast({ variant: "destructive", title: "No sequences", description: "Please upload sequences first" });
       setShowProgress(false);
       setStatus('draft');
       return;
     }
     
-    console.log(`Starting extraction for ${sequences.length} sequences with panels:`, selectedPanels);
+    console.log(`Starting extraction for ${storedSequences.length} sequences with panels:`, selectedPanels);
     
     try {
       // Call the real extract-features edge function
-      const result = await extractFeatures(sequences, panelConfig);
+      const result = await extractFeatures(storedSequences, panelConfig);
       
       if (result && result.success) {
         setExtractedResults(result);
@@ -504,7 +497,7 @@ export default function AnalysisPlayground() {
         {/* Stats Bar */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           {[
-            { label: "Sequences", value: featureData.length > 0 ? featureData.length.toString() : (sequences.length || realAnalysisData?.sequence_count || 0).toString() },
+            { label: "Sequences", value: featureData.length > 0 ? featureData.length.toString() : (storedSequences.length || realAnalysisData?.sequence_count || 0).toString() },
             { label: "Panels Computed", value: selectedPanels.length.toString() },
             { label: "Features Available", value: featureNames.length.toString() },
             { label: "Runtime", value: extractedResults?.metadata?.computeTimeMs 
@@ -558,7 +551,7 @@ export default function AnalysisPlayground() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {sequences.map((seq) => (
+                      {sequenceOptions.map((seq) => (
                         <SelectItem key={seq.id} value={seq.id}>
                           {seq.name}
                         </SelectItem>
