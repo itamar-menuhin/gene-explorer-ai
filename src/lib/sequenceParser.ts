@@ -213,6 +213,11 @@ export const parseSpreadsheet = async (
   });
 };
 
+export interface SpreadsheetPreview {
+  columns: string[];
+  rows: Record<string, any>[];
+}
+
 // Get column headers from spreadsheet
 export const getSpreadsheetColumns = async (file: File): Promise<string[]> => {
   return new Promise((resolve) => {
@@ -237,6 +242,36 @@ export const getSpreadsheetColumns = async (file: File): Promise<string[]> => {
     };
     
     reader.onerror = () => resolve([]);
+    reader.readAsBinaryString(file);
+  });
+};
+
+// Get spreadsheet preview with column names and top 5 rows
+export const getSpreadsheetPreview = async (file: File): Promise<SpreadsheetPreview> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet);
+        
+        if (jsonData.length > 0) {
+          const columns = Object.keys(jsonData[0]);
+          const rows = jsonData.slice(0, 5); // Get top 5 rows
+          resolve({ columns, rows });
+        } else {
+          resolve({ columns: [], rows: [] });
+        }
+      } catch {
+        resolve({ columns: [], rows: [] });
+      }
+    };
+    
+    reader.onerror = () => resolve({ columns: [], rows: [] });
     reader.readAsBinaryString(file);
   });
 };
