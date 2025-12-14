@@ -25,15 +25,12 @@ export type Database = {
           min_length: number | null
           mode: string
           name: string
-          results: Json | null
           selected_panels: string[] | null
           sequence_count: number | null
-          sequences: Json | null
           share_token: string | null
           status: string
           updated_at: string
           user_id: string
-          window_config: Json | null
         }
         Insert: {
           computed_at?: string | null
@@ -45,15 +42,12 @@ export type Database = {
           min_length?: number | null
           mode?: string
           name: string
-          results?: Json | null
           selected_panels?: string[] | null
           sequence_count?: number | null
-          sequences?: Json | null
           share_token?: string | null
           status?: string
           updated_at?: string
           user_id: string
-          window_config?: Json | null
         }
         Update: {
           computed_at?: string | null
@@ -65,15 +59,12 @@ export type Database = {
           min_length?: number | null
           mode?: string
           name?: string
-          results?: Json | null
           selected_panels?: string[] | null
           sequence_count?: number | null
-          sequences?: Json | null
           share_token?: string | null
           status?: string
           updated_at?: string
           user_id?: string
-          window_config?: Json | null
         }
         Relationships: []
       }
