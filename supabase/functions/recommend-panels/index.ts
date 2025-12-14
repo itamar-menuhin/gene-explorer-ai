@@ -31,48 +31,49 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Panels aligned with Python backend /panels endpoint
 const PANELS: Panel[] = [
   {
-    id: "codon_usage",
+    id: "sequence",
+    name: "Sequence Composition",
+    description: "Nucleotide composition, GC content, sequence length metrics.",
+    features: ["GC Content", "AT Content", "Sequence Length", "Nucleotide Counts"],
+    keywords: ["GC", "content", "composition", "nucleotide", "length", "sequence", "AT"]
+  },
+  {
+    id: "chemical",
+    name: "Chemical Properties",
+    description: "Isoelectric point, instability index, molecular weight, GRAVY, aromaticity.",
+    features: ["Isoelectric Point", "Instability Index", "Molecular Weight", "GRAVY", "Aromaticity Index"],
+    keywords: ["protein", "chemical", "isoelectric", "stability", "hydropathy", "molecular weight", "aromaticity"]
+  },
+  {
+    id: "codonUsage",
     name: "Codon Usage Bias",
-    description: "Measures the deviation from uniform codon usage, including ENC, CUB, and RSCU values.",
-    features: ["ENC (Effective Number of Codons)", "CUB (Codon Usage Bias)", "RSCU (Relative Synonymous Codon Usage)"],
-    keywords: ["codon", "translation", "expression", "efficiency", "ribosome", "protein synthesis", "tRNA"]
+    description: "ENC, RCBS, RSCU, CPB, DCBS, CAI, and FOP metrics for codon usage analysis.",
+    features: ["ENC", "RCBS", "RSCU", "CPB", "DCBS", "CAI", "FOP"],
+    keywords: ["codon", "translation", "expression", "efficiency", "ribosome", "protein synthesis", "tRNA", "bias"]
   },
   {
-    id: "cai",
-    name: "Codon Adaptation Index",
-    description: "Quantifies how well a gene's codon usage matches highly expressed reference genes.",
-    features: ["CAI Score", "wCAI (Weighted CAI)", "Reference Set Comparison"],
-    keywords: ["expression", "adaptation", "highly expressed", "translation efficiency", "optimization"]
+    id: "disorder",
+    name: "Disorder Prediction",
+    description: "Intrinsic disorder propensity using IUPred algorithm.",
+    features: ["IUPred Score", "Disordered Regions", "Disorder Fraction"],
+    keywords: ["disorder", "IUPred", "intrinsic", "unstructured", "flexible", "disordered regions"]
   },
   {
-    id: "mrna_folding",
-    name: "mRNA Secondary Structure",
-    description: "Predicts RNA folding and calculates minimum free energy profiles.",
-    features: ["MFE (Minimum Free Energy)", "Base Pairing Probability", "Structure Entropy"],
-    keywords: ["folding", "structure", "stability", "RNA", "secondary structure", "hairpin", "stem-loop", "ribosome binding"]
+    id: "structure",
+    name: "Structure Features",
+    description: "Secondary structure propensity predictions for helix, sheet, and coil.",
+    features: ["Helix Propensity", "Sheet Propensity", "Coil Propensity"],
+    keywords: ["structure", "secondary", "helix", "sheet", "coil", "folding", "protein structure"]
   },
   {
-    id: "gc_content",
-    name: "GC Content Analysis",
-    description: "Calculates GC content and skew across sequence positions.",
-    features: ["GC%", "GC Skew", "AT/GC Ratio"],
-    keywords: ["GC", "content", "composition", "stability", "genome", "thermal"]
-  },
-  {
-    id: "rare_codons",
-    name: "Rare Codon Analysis",
-    description: "Identifies clusters of rare codons that may cause ribosome stalling.",
-    features: ["Rare Codon Frequency", "Cluster Detection", "Stalling Propensity"],
-    keywords: ["rare", "stalling", "ribosome", "pause", "slow", "bottleneck", "translation"]
-  },
-  {
-    id: "nucleotide_freq",
-    name: "Nucleotide Frequency",
-    description: "Analyzes positional nucleotide frequencies and dinucleotide patterns.",
-    features: ["Position-specific Frequencies", "Dinucleotide Bias", "k-mer Analysis"],
-    keywords: ["nucleotide", "frequency", "pattern", "motif", "composition", "bias"]
+    id: "motif",
+    name: "Motif Analysis",
+    description: "JASPAR motif scanning and regulatory element detection.",
+    features: ["Motif Count", "Motif Density", "Top Motifs"],
+    keywords: ["motif", "JASPAR", "regulatory", "transcription factor", "binding site", "element"]
   }
 ];
 
