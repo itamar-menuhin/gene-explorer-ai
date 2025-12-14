@@ -521,20 +521,50 @@ export default function NewAnalysis() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Window Configuration - Separate panels for start and end */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-sm">Windowed Analysis</h4>
-                <StartWindowConfigPanel
-                  config={windowConfig.start}
-                  onChange={(cfg) => setWindowConfig({ ...windowConfig, start: cfg })}
-                  maxSequenceLength={parseResult?.stats.maxLength || 10000}
-                />
-                <EndWindowConfigPanel
-                  config={windowConfig.end}
-                  onChange={(cfg) => setWindowConfig({ ...windowConfig, end: cfg })}
-                  maxSequenceLength={parseResult?.stats.maxLength || 10000}
-                />
-              </div>
+              {/* Research Question/Hypothesis */}
+              {isGuided && hypothesis && (
+                <div className="bg-ocean-50 rounded-lg p-4 border border-ocean-100">
+                  <h4 className="font-medium mb-2 text-ocean-800 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Research Question
+                  </h4>
+                  <p className="text-sm text-ocean-700">{hypothesis}</p>
+                </div>
+              )}
+
+              {/* Sequence Data Summary */}
+              {parseResult && (
+                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    <Dna className="h-4 w-4" />
+                    Sequence Data
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                    <div className="text-center p-2 bg-white rounded">
+                      <div className="text-lg font-bold text-primary">{parseResult.stats.count}</div>
+                      <div className="text-xs text-muted-foreground">Sequences</div>
+                    </div>
+                    <div className="text-center p-2 bg-white rounded">
+                      <div className="text-lg font-bold text-secondary-foreground">{parseResult.stats.minLength}</div>
+                      <div className="text-xs text-muted-foreground">Min Length</div>
+                    </div>
+                    <div className="text-center p-2 bg-white rounded">
+                      <div className="text-lg font-bold text-secondary-foreground">{parseResult.stats.maxLength}</div>
+                      <div className="text-xs text-muted-foreground">Max Length</div>
+                    </div>
+                    <div className="text-center p-2 bg-white rounded">
+                      <div className="text-lg font-bold text-secondary-foreground">{parseResult.stats.medianLength}</div>
+                      <div className="text-xs text-muted-foreground">Median</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    First sequence: <span className="font-mono">{parseResult.sequences[0]?.name || 'N/A'}</span>
+                    {parseResult.sequences.length > 1 && (
+                      <span> and {parseResult.sequences.length - 1} more</span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Selected Panels Summary */}
               <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
@@ -553,6 +583,21 @@ export default function NewAnalysis() {
                     ) : null;
                   })}
                 </div>
+              </div>
+
+              {/* Window Configuration - Separate panels for start and end */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Windowed Analysis</h4>
+                <StartWindowConfigPanel
+                  config={windowConfig.start}
+                  onChange={(cfg) => setWindowConfig({ ...windowConfig, start: cfg })}
+                  maxSequenceLength={parseResult?.stats.maxLength || 10000}
+                />
+                <EndWindowConfigPanel
+                  config={windowConfig.end}
+                  onChange={(cfg) => setWindowConfig({ ...windowConfig, end: cfg })}
+                  maxSequenceLength={parseResult?.stats.maxLength || 10000}
+                />
               </div>
 
               {/* Runtime Estimate - based on window count */}
