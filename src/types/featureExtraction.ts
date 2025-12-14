@@ -89,12 +89,12 @@ export interface FeatureDefinition {
   unit?: string;
 }
 
-// Available feature panels
+// Available feature panels - aligned with Python backend /panels endpoint
 export const FEATURE_PANELS: FeaturePanel[] = [
   {
     id: 'sequence',
     name: 'Sequence Composition',
-    description: 'Nucleotide composition, GC content, k-mer frequencies',
+    description: 'Nucleotide composition, GC content, sequence length metrics',
     category: 'sequence',
     supportsWindowed: true,
     features: [
@@ -110,19 +110,37 @@ export const FEATURE_PANELS: FeaturePanel[] = [
   {
     id: 'chemical',
     name: 'Chemical Properties',
-    description: 'Molecular weight, melting temperature, thermodynamic properties',
+    description: 'Isoelectric point, instability index, molecular weight, GRAVY, aromaticity',
     category: 'chemical',
     supportsWindowed: true,
     features: [
-      { id: 'molecular_weight', name: 'Molecular Weight', description: 'Molecular mass of the sequence', dataType: 'numeric', unit: 'Da' },
-      { id: 'melting_temp', name: 'Melting Temperature', description: 'Predicted Tm using nearest-neighbor method', dataType: 'numeric', unit: '°C' },
-      { id: 'extinction_coeff', name: 'Extinction Coefficient', description: 'Molar extinction coefficient at 260nm', dataType: 'numeric', unit: 'M⁻¹cm⁻¹' },
+      { id: 'isoelectric_point', name: 'Isoelectric Point', description: 'pH at which protein has no net charge', dataType: 'numeric' },
+      { id: 'instability_index', name: 'Instability Index', description: 'Protein stability prediction', dataType: 'numeric' },
+      { id: 'molecular_weight', name: 'Molecular Weight', description: 'Molecular mass of the protein', dataType: 'numeric', unit: 'Da' },
+      { id: 'gravy', name: 'GRAVY', description: 'Grand average of hydropathicity', dataType: 'numeric' },
+      { id: 'aromaticity_index', name: 'Aromaticity Index', description: 'Relative frequency of aromatic amino acids', dataType: 'numeric' },
+    ]
+  },
+  {
+    id: 'codonUsage',
+    name: 'Codon Usage Bias',
+    description: 'ENC, RCBS, RSCU, CPB, DCBS, CAI, and FOP metrics',
+    category: 'sequence',
+    supportsWindowed: true,
+    features: [
+      { id: 'enc', name: 'Effective Number of Codons', description: 'ENC measure of codon bias', dataType: 'numeric' },
+      { id: 'rcbs', name: 'RCBS', description: 'Relative codon bias strength', dataType: 'numeric' },
+      { id: 'rscu', name: 'RSCU', description: 'Relative synonymous codon usage', dataType: 'numeric' },
+      { id: 'cpb', name: 'CPB', description: 'Codon pair bias', dataType: 'numeric' },
+      { id: 'dcbs', name: 'DCBS', description: 'Directional codon bias strength', dataType: 'numeric' },
+      { id: 'cai', name: 'CAI', description: 'Codon adaptation index', dataType: 'numeric' },
+      { id: 'fop', name: 'FOP', description: 'Frequency of optimal codons', dataType: 'numeric' },
     ]
   },
   {
     id: 'disorder',
     name: 'Disorder Prediction',
-    description: 'Intrinsic disorder propensity using IUPred and MoreRONN',
+    description: 'Intrinsic disorder propensity using IUPred',
     category: 'structure',
     supportsWindowed: true,
     features: [
@@ -134,7 +152,7 @@ export const FEATURE_PANELS: FeaturePanel[] = [
   {
     id: 'structure',
     name: 'Structure Features',
-    description: 'Secondary structure predictions and structural properties',
+    description: 'Secondary structure propensity predictions',
     category: 'structure',
     supportsWindowed: true,
     features: [
@@ -153,18 +171,6 @@ export const FEATURE_PANELS: FeaturePanel[] = [
       { id: 'motif_count', name: 'Motif Count', description: 'Number of detected motifs', dataType: 'numeric' },
       { id: 'motif_density', name: 'Motif Density', description: 'Motifs per kilobase', dataType: 'numeric', unit: 'per kb' },
       { id: 'top_motifs', name: 'Top Motifs', description: 'Most significant motifs found', dataType: 'categorical' },
-    ]
-  },
-  {
-    id: 'codonUsage',
-    name: 'Codon Usage',
-    description: 'Codon adaptation index and usage bias analysis',
-    category: 'sequence',
-    supportsWindowed: false,
-    features: [
-      { id: 'cai', name: 'Codon Adaptation Index', description: 'CAI score relative to reference organism', dataType: 'numeric' },
-      { id: 'enc', name: 'Effective Number of Codons', description: 'ENC measure of codon bias', dataType: 'numeric' },
-      { id: 'rscu', name: 'RSCU Values', description: 'Relative synonymous codon usage', dataType: 'categorical' },
     ]
   },
 ];
