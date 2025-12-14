@@ -74,6 +74,27 @@ export type Database = {
         }
         Relationships: []
       }
+      panel_cache: {
+        Row: {
+          fetched_at: string
+          id: string
+          panels: Json
+          python_backend_url: string | null
+        }
+        Insert: {
+          fetched_at?: string
+          id?: string
+          panels?: Json
+          python_backend_url?: string | null
+        }
+        Update: {
+          fetched_at?: string
+          id?: string
+          panels?: Json
+          python_backend_url?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

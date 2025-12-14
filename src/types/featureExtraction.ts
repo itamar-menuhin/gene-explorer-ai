@@ -26,12 +26,7 @@ export interface FeatureConfig {
 }
 
 export interface FeaturePanelConfig {
-  sequence: FeatureConfig;
-  chemical: FeatureConfig;
-  disorder: FeatureConfig;
-  structure: FeatureConfig;
-  motif: FeatureConfig;
-  codonUsage: FeatureConfig;
+  [key: string]: FeatureConfig;
 }
 
 export interface FeatureExtractionRequest {
@@ -89,10 +84,11 @@ export interface FeatureDefinition {
   unit?: string;
 }
 
-// Available feature panels - aligned with Python backend /panels endpoint
-export const FEATURE_PANELS: FeaturePanel[] = [
-  {
-    id: 'sequence',
+// UI-enriched panel definitions - provides detailed feature info for display
+// The actual panels are fetched dynamically from Python backend via usePanels hook
+// This map provides UI-specific metadata (units, data types, etc.) for known panels
+export const PANEL_UI_DEFINITIONS: Record<string, Omit<FeaturePanel, 'id'>> = {
+  sequence: {
     name: 'Sequence Composition',
     description: 'Nucleotide composition, GC content, sequence length metrics',
     category: 'sequence',
@@ -107,8 +103,7 @@ export const FEATURE_PANELS: FeaturePanel[] = [
       { id: 'c_count', name: 'Cytosine Count', description: 'Number of C nucleotides', dataType: 'numeric' },
     ]
   },
-  {
-    id: 'chemical',
+  chemical: {
     name: 'Chemical Properties',
     description: 'Isoelectric point, instability index, molecular weight, GRAVY, aromaticity',
     category: 'chemical',
@@ -121,8 +116,7 @@ export const FEATURE_PANELS: FeaturePanel[] = [
       { id: 'aromaticity_index', name: 'Aromaticity Index', description: 'Relative frequency of aromatic amino acids', dataType: 'numeric' },
     ]
   },
-  {
-    id: 'codonUsage',
+  codonUsage: {
     name: 'Codon Usage Bias',
     description: 'ENC, RCBS, RSCU, CPB, DCBS, CAI, and FOP metrics',
     category: 'sequence',
@@ -137,8 +131,7 @@ export const FEATURE_PANELS: FeaturePanel[] = [
       { id: 'fop', name: 'FOP', description: 'Frequency of optimal codons', dataType: 'numeric' },
     ]
   },
-  {
-    id: 'disorder',
+  disorder: {
     name: 'Disorder Prediction',
     description: 'Intrinsic disorder propensity using IUPred',
     category: 'structure',
@@ -149,8 +142,7 @@ export const FEATURE_PANELS: FeaturePanel[] = [
       { id: 'disorder_fraction', name: 'Disorder Fraction', description: 'Fraction of sequence predicted disordered', dataType: 'numeric', unit: '%' },
     ]
   },
-  {
-    id: 'structure',
+  structure: {
     name: 'Structure Features',
     description: 'Secondary structure propensity predictions',
     category: 'structure',
@@ -161,8 +153,7 @@ export const FEATURE_PANELS: FeaturePanel[] = [
       { id: 'coil_propensity', name: 'Coil Propensity', description: 'Predicted random coil content', dataType: 'numeric', unit: '%' },
     ]
   },
-  {
-    id: 'motif',
+  motif: {
     name: 'Motif Analysis',
     description: 'JASPAR motif scanning and regulatory element detection',
     category: 'regulatory',
@@ -173,4 +164,37 @@ export const FEATURE_PANELS: FeaturePanel[] = [
       { id: 'top_motifs', name: 'Top Motifs', description: 'Most significant motifs found', dataType: 'categorical' },
     ]
   },
-];
+};
+
+// Helper to build FeaturePanel from dynamic panel data and UI definitions
+export function buildFeaturePanel(panel: { id: string; name: string; description: string; features: string[] }): FeaturePanel {
+  const uiDef = PANEL_UI_DEFINITIONS[panel.id];
+  
+  if (uiDef) {
+    // Use full UI definition if available
+    return {
+      id: panel.id,
+      ...uiDef
+    };
+  }
+  
+  // Fallback for unknown panels - create basic definition from backend data
+  return {
+    id: panel.id,
+    name: panel.name,
+    description: panel.description,
+    category: 'sequence', // Default category
+    supportsWindowed: true,
+    features: panel.features.map(f => ({
+      id: f.toLowerCase().replace(/\s+/g, '_'),
+      name: f,
+      description: f,
+      dataType: 'numeric' as const
+    }))
+  };
+}
+
+// Legacy export for backward compatibility - will be replaced by usePanels hook
+export const FEATURE_PANELS: FeaturePanel[] = Object.entries(PANEL_UI_DEFINITIONS).map(
+  ([id, def]) => ({ id, ...def })
+);

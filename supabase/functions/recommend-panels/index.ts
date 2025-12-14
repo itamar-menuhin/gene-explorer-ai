@@ -13,16 +13,18 @@
  * 
  * FLOW:
  *   1. Receives hypothesis and optional dataset metadata from frontend
- *   2. Loads prompts from centralized location (../prompts/recommend-panels-prompts.ts)
- *   3. Calls AI model (google/gemini-2.5-flash) via Lovable AI Gateway
- *   4. AI scores all available panels (1-10) with explanations
- *   5. Returns enriched recommendations sorted by relevance score
+ *   2. Fetches panels from get-panels function (cached from Python backend)
+ *   3. Loads prompts from centralized location (../prompts/recommend-panels-prompts.ts)
+ *   4. Calls AI model (google/gemini-2.5-flash) via Lovable AI Gateway
+ *   5. AI scores all available panels (1-10) with explanations
+ *   6. Returns enriched recommendations sorted by relevance score
  * 
  * AI MODEL: google/gemini-2.5-flash
  * PROMPTS: /supabase/functions/prompts/recommend-panels-prompts.ts
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildSystemPrompt, buildUserPrompt } from "../prompts/recommend-panels-prompts.ts";
 import type { Panel } from "../types/panels.ts";
 
@@ -31,8 +33,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Panels aligned with Python backend /panels endpoint
-const PANELS: Panel[] = [
+// Default panels as fallback
+const DEFAULT_PANELS: Panel[] = [
   {
     id: "sequence",
     name: "Sequence Composition",
@@ -77,6 +79,27 @@ const PANELS: Panel[] = [
   }
 ];
 
+async function getPanels(supabase: any): Promise<Panel[]> {
+  try {
+    // First try to get from cache table directly
+    const { data: cached } = await supabase
+      .from('panel_cache')
+      .select('panels')
+      .eq('id', 'panels')
+      .single();
+    
+    if (cached?.panels && Array.isArray(cached.panels) && cached.panels.length > 0) {
+      console.log('Using cached panels for recommendations');
+      return cached.panels;
+    }
+  } catch (cacheError) {
+    console.warn('Failed to read panel cache:', cacheError);
+  }
+  
+  console.log('Using default panels for recommendations');
+  return DEFAULT_PANELS;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -92,10 +115,18 @@ serve(async (req) => {
       });
     }
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
+
+    // Get panels dynamically from cache
+    const PANELS = await getPanels(supabase);
+    console.log(`Using ${PANELS.length} panels for recommendation`);
 
     // Build prompts using centralized prompt builder functions
     // See: /supabase/functions/prompts/recommend-panels-prompts.ts for prompt definitions
