@@ -203,7 +203,9 @@ export const SequenceUpload: React.FC<SequenceUploadProps> = ({ onSequencesParse
                     {/* Preview Table */}
                     {spreadsheetPreview && spreadsheetPreview.rows.length > 0 && (
                       <div className="p-4 bg-muted/20 rounded-lg">
-                        <Label className="text-sm font-medium mb-2 block">Preview (top {spreadsheetPreview.rows.length} rows)</Label>
+                        <Label className="text-sm font-medium mb-2 block">
+                          Preview (showing {spreadsheetPreview.rows.length} of first 5 rows)
+                        </Label>
                         <div className="overflow-x-auto border border-border/50 rounded-md">
                           <table className="w-full text-sm">
                             <thead className="bg-muted/50">
