@@ -521,6 +521,93 @@ export default function NewAnalysis() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Research Question/Hypothesis */}
+              {isGuided && hypothesis && (
+                <div className="bg-ocean-50 rounded-lg p-4 border border-ocean-100">
+                  <h4 className="font-medium mb-2 text-ocean-800 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Research Question
+                  </h4>
+                  <p className="text-sm text-ocean-700">{hypothesis}</p>
+                </div>
+              )}
+
+              {/* Sequence Data Summary */}
+              {parseResult && (
+                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    <Dna className="h-4 w-4" />
+                    Sequence Data
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                    <div className="text-center p-2 bg-white rounded">
+                      <div className="text-lg font-bold text-primary">{parseResult.stats.count}</div>
+                      <div className="text-xs text-muted-foreground">Sequences</div>
+                    </div>
+                    <div className="text-center p-2 bg-white rounded">
+                      <div className="text-lg font-bold text-secondary-foreground">{parseResult.stats.minLength}</div>
+                      <div className="text-xs text-muted-foreground">Min Length</div>
+                    </div>
+                    <div className="text-center p-2 bg-white rounded">
+                      <div className="text-lg font-bold text-secondary-foreground">{parseResult.stats.maxLength}</div>
+                      <div className="text-xs text-muted-foreground">Max Length</div>
+                    </div>
+                    <div className="text-center p-2 bg-white rounded">
+                      <div className="text-lg font-bold text-secondary-foreground">{parseResult.stats.medianLength}</div>
+                      <div className="text-xs text-muted-foreground">Median</div>
+                    </div>
+                  </div>
+                  
+                  {/* Preview of sequences */}
+                  <div className="mt-3 p-3 bg-white rounded border border-slate-200">
+                    <div className="text-xs font-medium text-muted-foreground mb-2">
+                      Preview (first {Math.min(5, parseResult.sequences.length)} sequences)
+                    </div>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {parseResult.sequences.slice(0, 5).map((seq, idx) => {
+                        const PREVIEW_SEQUENCE_LENGTH = 80;
+                        return (
+                          <div key={idx} className="text-xs border-l-2 border-primary/30 pl-2">
+                            <div className="font-medium text-slate-700">{seq.name}</div>
+                            <div className="font-mono text-slate-500 truncate max-w-full">
+                              {seq.sequence.substring(0, PREVIEW_SEQUENCE_LENGTH)}
+                              {seq.sequence.length > PREVIEW_SEQUENCE_LENGTH && '...'}
+                            </div>
+                            <div className="text-slate-400">Length: {seq.length} bp</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Selected Panels Summary */}
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Zap className="h-4 w-4" />
+                  Selected Panels ({selectedPanels.length})
+                </h4>
+                {selectedPanels.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPanels.map(panelId => {
+                      const panel = FEATURE_PANELS.find(p => p.id === panelId);
+                      const windowedEnabled = windowConfig.start.enabled || windowConfig.end.enabled;
+                      return panel ? (
+                        <Badge key={panelId} variant="secondary" className="text-sm py-1 px-3">
+                          {panel.name}
+                          {windowedEnabled && !panel.supportsWindowed && (
+                            <span className="ml-1 text-amber-600">(global only)</span>
+                          )}
+                        </Badge>
+                      ) : null;
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">No panels selected. Please go back to select panels.</p>
+                )}
+              </div>
+
               {/* Window Configuration - Separate panels for start and end */}
               <div className="space-y-4">
                 <h4 className="font-medium text-sm">Windowed Analysis</h4>
@@ -534,25 +621,6 @@ export default function NewAnalysis() {
                   onChange={(cfg) => setWindowConfig({ ...windowConfig, end: cfg })}
                   maxSequenceLength={parseResult?.stats.maxLength || 10000}
                 />
-              </div>
-
-              {/* Selected Panels Summary */}
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <h4 className="font-medium mb-3">Selected Panels ({selectedPanels.length})</h4>
-                <div className="flex flex-wrap gap-2">
-                  {selectedPanels.map(panelId => {
-                    const panel = FEATURE_PANELS.find(p => p.id === panelId);
-                    const windowedEnabled = windowConfig.start.enabled || windowConfig.end.enabled;
-                    return panel ? (
-                      <Badge key={panelId} variant="secondary">
-                        {panel.name}
-                        {windowedEnabled && !panel.supportsWindowed && (
-                          <span className="ml-1 text-amber-600">(global only)</span>
-                        )}
-                      </Badge>
-                    ) : null;
-                  })}
-                </div>
               </div>
 
               {/* Runtime Estimate - based on window count */}

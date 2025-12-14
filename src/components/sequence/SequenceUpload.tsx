@@ -12,8 +12,10 @@ import {
   parseSingleSequence,
   parseSpreadsheet,
   getSpreadsheetColumns,
+  getSpreadsheetPreview,
   ParseResult,
-  SequenceStats
+  SequenceStats,
+  SpreadsheetPreview
 } from '@/lib/sequenceParser';
 
 interface SequenceUploadProps {
@@ -25,6 +27,7 @@ export const SequenceUpload: React.FC<SequenceUploadProps> = ({ onSequencesParse
   const [pastedSequence, setPastedSequence] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [columns, setColumns] = useState<string[]>([]);
+  const [spreadsheetPreview, setSpreadsheetPreview] = useState<SpreadsheetPreview | null>(null);
   const [sequenceColumn, setSequenceColumn] = useState('');
   const [nameColumn, setNameColumn] = useState('');
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
@@ -55,8 +58,9 @@ export const SequenceUpload: React.FC<SequenceUploadProps> = ({ onSequencesParse
       onSequencesParsed(result);
       setIsProcessing(false);
     } else if (ext === 'csv' || ext === 'xlsx' || ext === 'xls') {
-      const cols = await getSpreadsheetColumns(file);
-      setColumns(cols);
+      const preview = await getSpreadsheetPreview(file);
+      setColumns(preview.columns);
+      setSpreadsheetPreview(preview);
       setSequenceColumn('');
       setNameColumn('');
     }
@@ -105,6 +109,7 @@ export const SequenceUpload: React.FC<SequenceUploadProps> = ({ onSequencesParse
   const clearUpload = () => {
     setUploadedFile(null);
     setColumns([]);
+    setSpreadsheetPreview(null);
     setSequenceColumn('');
     setNameColumn('');
     setParseResult(null);
@@ -194,43 +199,79 @@ export const SequenceUpload: React.FC<SequenceUploadProps> = ({ onSequencesParse
                 </div>
                 
                 {isSpreadsheet && columns.length > 0 && (
-                  <div className="space-y-4 p-4 bg-muted/20 rounded-lg">
-                    <div className="space-y-2">
-                      <Label>Sequence Column *</Label>
-                      <Select value={sequenceColumn} onValueChange={setSequenceColumn}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select column containing sequences" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {columns.map(col => (
-                            <SelectItem key={col} value={col}>{col}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-4">
+                    {/* Preview Table */}
+                    {spreadsheetPreview && spreadsheetPreview.rows.length > 0 && (
+                      <div className="p-4 bg-muted/20 rounded-lg">
+                        <Label className="text-sm font-medium mb-2 block">
+                          Preview (showing {spreadsheetPreview.rows.length} of first 5 rows)
+                        </Label>
+                        <div className="overflow-x-auto border border-border/50 rounded-md">
+                          <table className="w-full text-sm">
+                            <thead className="bg-muted/50">
+                              <tr>
+                                {spreadsheetPreview.columns.map((col, idx) => (
+                                  <th key={idx} className="px-3 py-2 text-left font-medium border-b border-border/50">
+                                    {col}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {spreadsheetPreview.rows.map((row, rowIdx) => (
+                                <tr key={rowIdx} className="border-b border-border/30 last:border-0">
+                                  {spreadsheetPreview.columns.map((col, colIdx) => (
+                                    <td key={colIdx} className="px-3 py-2 max-w-[200px] truncate">
+                                      {String(row[col] ?? '')}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                     
-                    <div className="space-y-2">
-                      <Label>Name Column (optional)</Label>
-                      <Select value={nameColumn || "__none__"} onValueChange={(val) => setNameColumn(val === "__none__" ? "" : val)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select column for sequence names" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">None</SelectItem>
-                          {columns.filter(c => c !== sequenceColumn).map(col => (
-                            <SelectItem key={col} value={col}>{col}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    {/* Column Selection */}
+                    <div className="space-y-4 p-4 bg-muted/20 rounded-lg">
+                      <div className="space-y-2">
+                        <Label>Sequence Column *</Label>
+                        <Select value={sequenceColumn} onValueChange={setSequenceColumn}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select column containing sequences" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {columns.map(col => (
+                              <SelectItem key={col} value={col}>{col}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Name Column (optional)</Label>
+                        <Select value={nameColumn || "__none__"} onValueChange={(val) => setNameColumn(val === "__none__" ? "" : val)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select column for sequence names" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">None</SelectItem>
+                            {columns.filter(c => c !== sequenceColumn).map(col => (
+                              <SelectItem key={col} value={col}>{col}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <Button 
+                        onClick={handleSpreadsheetParse}
+                        disabled={!sequenceColumn || isProcessing}
+                        className="w-full"
+                      >
+                        Parse Spreadsheet
+                      </Button>
                     </div>
-                    
-                    <Button 
-                      onClick={handleSpreadsheetParse}
-                      disabled={!sequenceColumn || isProcessing}
-                      className="w-full"
-                    >
-                      Parse Spreadsheet
-                    </Button>
                   </div>
                 )}
               </div>

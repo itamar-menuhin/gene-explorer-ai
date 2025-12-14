@@ -213,8 +213,13 @@ export const parseSpreadsheet = async (
   });
 };
 
-// Get column headers from spreadsheet
-export const getSpreadsheetColumns = async (file: File): Promise<string[]> => {
+export interface SpreadsheetPreview {
+  columns: string[];
+  rows: Record<string, any>[];
+}
+
+// Get spreadsheet preview with column names and top 5 rows
+export const getSpreadsheetPreview = async (file: File): Promise<SpreadsheetPreview> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
     
@@ -227,18 +232,26 @@ export const getSpreadsheetColumns = async (file: File): Promise<string[]> => {
         const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet);
         
         if (jsonData.length > 0) {
-          resolve(Object.keys(jsonData[0]));
+          const columns = Object.keys(jsonData[0]);
+          const rows = jsonData.slice(0, 5); // Get top 5 rows
+          resolve({ columns, rows });
         } else {
-          resolve([]);
+          resolve({ columns: [], rows: [] });
         }
       } catch {
-        resolve([]);
+        resolve({ columns: [], rows: [] });
       }
     };
     
-    reader.onerror = () => resolve([]);
+    reader.onerror = () => resolve({ columns: [], rows: [] });
     reader.readAsBinaryString(file);
   });
+};
+
+// Get column headers from spreadsheet
+export const getSpreadsheetColumns = async (file: File): Promise<string[]> => {
+  const preview = await getSpreadsheetPreview(file);
+  return preview.columns;
 };
 
 // Calculate statistics for sequences
