@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Dna, FlaskConical, Shapes, Target } from 'lucide-react';
-import { FEATURE_PANELS, type FeaturePanel, type FeaturePanelConfig } from '@/types/featureExtraction';
+import { ChevronDown, Dna, FlaskConical, Shapes, Target, Loader2 } from 'lucide-react';
+import { PANEL_UI_DEFINITIONS, buildFeaturePanel, type FeaturePanel, type FeaturePanelConfig } from '@/types/featureExtraction';
+import { usePanels } from '@/hooks/usePanels';
 import { cn } from '@/lib/utils';
 
 interface FeaturePanelSelectorProps {
@@ -35,15 +36,21 @@ export function FeaturePanelSelector({
   disabled = false,
 }: FeaturePanelSelectorProps) {
   const [expandedPanels, setExpandedPanels] = useState<Set<string>>(new Set());
+  const { panels: dynamicPanels, loading, error } = usePanels();
+
+  // Build full FeaturePanel objects from dynamic panel data
+  const featurePanels: FeaturePanel[] = useMemo(() => {
+    return dynamicPanels.map(p => buildFeaturePanel(p));
+  }, [dynamicPanels]);
 
   const togglePanel = (panelId: string) => {
-    const panel = FEATURE_PANELS.find(p => p.id === panelId);
+    const panel = featurePanels.find(p => p.id === panelId);
     if (!panel) return;
     
     // Don't allow selection if windowed mode and panel doesn't support it
     if (isWindowedMode && !panel.supportsWindowed) return;
 
-    const currentConfig = selectedPanels[panelId as keyof FeaturePanelConfig];
+    const currentConfig = selectedPanels[panelId];
     const isEnabled = currentConfig?.enabled ?? false;
 
     onPanelChange({
@@ -65,7 +72,7 @@ export function FeaturePanelSelector({
   };
 
   const isPanelEnabled = (panelId: string) => {
-    const config = selectedPanels[panelId as keyof FeaturePanelConfig];
+    const config = selectedPanels[panelId];
     return config?.enabled ?? false;
   };
 
@@ -73,9 +80,27 @@ export function FeaturePanelSelector({
     return disabled || (isWindowedMode && !panel.supportsWindowed);
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Loading panels...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8 text-destructive">
+        <p>Failed to load panels: {error}</p>
+        <p className="text-sm text-muted-foreground mt-2">Using default panels</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
-      {FEATURE_PANELS.map(panel => {
+      {featurePanels.map(panel => {
         const isEnabled = isPanelEnabled(panel.id);
         const isDisabled = isPanelDisabled(panel);
         const isExpanded = expandedPanels.has(panel.id);
