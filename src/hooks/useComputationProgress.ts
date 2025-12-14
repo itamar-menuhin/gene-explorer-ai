@@ -21,14 +21,12 @@ export interface ComputationState {
 }
 
 const AVAILABLE_PANELS = [
-  { id: 'hydrophobicity', name: 'Hydrophobicity' },
-  { id: 'charge', name: 'Net Charge' },
-  { id: 'molecular_weight', name: 'Molecular Weight' },
-  { id: 'isoelectric_point', name: 'Isoelectric Point' },
-  { id: 'aromaticity', name: 'Aromaticity' },
-  { id: 'instability_index', name: 'Instability Index' },
-  { id: 'secondary_structure', name: 'Secondary Structure' },
+  { id: 'sequence', name: 'Sequence Composition' },
+  { id: 'chemical', name: 'Chemical Properties' },
   { id: 'disorder', name: 'Disorder Prediction' },
+  { id: 'structure', name: 'Structure Features' },
+  { id: 'motif', name: 'Motif Analysis' },
+  { id: 'codonUsage', name: 'Codon Usage' },
 ];
 
 export function useComputationProgress(sequenceCount: number, selectedPanels: string[]) {

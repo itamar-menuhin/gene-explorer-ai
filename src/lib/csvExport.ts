@@ -102,12 +102,12 @@ export function generateCitationsExport(citations: { title: string; authors: str
 // Mock feature data generator for demo purposes
 export function generateMockFeatureData(sequences: ParsedSequence[], panels: string[]): FeatureData[] {
   const featuresByPanel: Record<string, string[]> = {
-    codon_usage: ['ENC', 'CUB', 'RSCU_avg'],
-    cai: ['CAI', 'wCAI'],
-    mrna_folding: ['MFE', 'structure_entropy'],
-    gc_content: ['GC_percent', 'GC_skew'],
-    rare_codons: ['rare_codon_freq', 'cluster_count'],
-    nucleotide_freq: ['A_freq', 'T_freq', 'G_freq', 'C_freq']
+    sequence: ['gc_content', 'at_content', 'length', 'a_count', 't_count', 'g_count', 'c_count'],
+    chemical: ['isoelectric_point', 'instability_index', 'molecular_weight', 'gravy', 'aromaticity_index'],
+    codonUsage: ['enc', 'cai', 'rcbs', 'rscu', 'cpb', 'dcbs', 'fop'],
+    disorder: ['iupred_score', 'disorder_regions', 'disorder_fraction'],
+    structure: ['helix_propensity', 'sheet_propensity', 'coil_propensity'],
+    motif: ['motif_count', 'motif_density', 'top_motifs']
   };
 
   return sequences.map(seq => {
@@ -117,11 +117,12 @@ export function generateMockFeatureData(sequences: ParsedSequence[], panels: str
       const panelFeatures = featuresByPanel[panelId] || [];
       panelFeatures.forEach(feature => {
         // Generate mock values based on feature type
-        if (feature === 'ENC') features[feature] = 30 + Math.random() * 30;
-        else if (feature === 'CAI' || feature === 'wCAI') features[feature] = 0.3 + Math.random() * 0.5;
-        else if (feature === 'GC_percent') features[feature] = 40 + Math.random() * 20;
-        else if (feature.includes('freq')) features[feature] = 0.2 + Math.random() * 0.1;
-        else if (feature === 'MFE') features[feature] = -50 - Math.random() * 100;
+        if (feature === 'enc') features[feature] = 30 + Math.random() * 30;
+        else if (feature === 'cai' || feature === 'fop') features[feature] = 0.3 + Math.random() * 0.5;
+        else if (feature === 'gc_content' || feature === 'at_content') features[feature] = 40 + Math.random() * 20;
+        else if (feature.includes('count')) features[feature] = Math.floor(seq.length * (0.2 + Math.random() * 0.1));
+        else if (feature === 'length') features[feature] = seq.length;
+        else if (feature.includes('propensity') || feature.includes('fraction')) features[feature] = Math.random() * 100;
         else features[feature] = Math.random();
       });
     });
@@ -138,12 +139,12 @@ export function generateMockFeatureData(sequences: ParsedSequence[], panels: str
 
 export function getAllFeatureNames(panels: string[]): string[] {
   const featuresByPanel: Record<string, string[]> = {
-    codon_usage: ['ENC', 'CUB', 'RSCU_avg'],
-    cai: ['CAI', 'wCAI'],
-    mrna_folding: ['MFE', 'structure_entropy'],
-    gc_content: ['GC_percent', 'GC_skew'],
-    rare_codons: ['rare_codon_freq', 'cluster_count'],
-    nucleotide_freq: ['A_freq', 'T_freq', 'G_freq', 'C_freq']
+    sequence: ['gc_content', 'at_content', 'length', 'a_count', 't_count', 'g_count', 'c_count'],
+    chemical: ['isoelectric_point', 'instability_index', 'molecular_weight', 'gravy', 'aromaticity_index'],
+    codonUsage: ['enc', 'cai', 'rcbs', 'rscu', 'cpb', 'dcbs', 'fop'],
+    disorder: ['iupred_score', 'disorder_regions', 'disorder_fraction'],
+    structure: ['helix_propensity', 'sheet_propensity', 'coil_propensity'],
+    motif: ['motif_count', 'motif_density', 'top_motifs']
   };
 
   const features: string[] = [];
