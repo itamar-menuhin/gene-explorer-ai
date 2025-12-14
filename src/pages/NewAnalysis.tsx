@@ -564,16 +564,19 @@ export default function NewAnalysis() {
                       Preview (first {Math.min(5, parseResult.sequences.length)} sequences)
                     </div>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {parseResult.sequences.slice(0, 5).map((seq, idx) => (
-                        <div key={idx} className="text-xs border-l-2 border-primary/30 pl-2">
-                          <div className="font-medium text-slate-700">{seq.name || seq.id}</div>
-                          <div className="font-mono text-slate-500 truncate max-w-full">
-                            {seq.sequence.substring(0, 80)}
-                            {seq.sequence.length > 80 && '...'}
+                      {parseResult.sequences.slice(0, 5).map((seq, idx) => {
+                        const PREVIEW_SEQUENCE_LENGTH = 80;
+                        return (
+                          <div key={idx} className="text-xs border-l-2 border-primary/30 pl-2">
+                            <div className="font-medium text-slate-700">{seq.name}</div>
+                            <div className="font-mono text-slate-500 truncate max-w-full">
+                              {seq.sequence.substring(0, PREVIEW_SEQUENCE_LENGTH)}
+                              {seq.sequence.length > PREVIEW_SEQUENCE_LENGTH && '...'}
+                            </div>
+                            <div className="text-slate-400">Length: {seq.length} bp</div>
                           </div>
-                          <div className="text-slate-400">Length: {seq.length} bp</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
