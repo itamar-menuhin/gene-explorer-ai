@@ -55,8 +55,12 @@ export default function NewAnalysis() {
     const savedStep = sessionStorage.getItem('newAnalysis_currentStep');
     const savedMode = sessionStorage.getItem('newAnalysis_mode');
     
-    // Only restore if the mode matches
-    if (savedStep && savedMode === mode) {
+    // Validate that savedStep is a valid Step value
+    const validSteps: Step[] = ['hypothesis', 'upload', 'panels', 'configure'];
+    const isValidStep = savedStep && validSteps.includes(savedStep as Step);
+    
+    // Only restore if the mode matches and step is valid
+    if (isValidStep && savedMode === mode) {
       return savedStep as Step;
     }
     
@@ -166,7 +170,7 @@ export default function NewAnalysis() {
     }
   };
 
-  // Clear session storage if mode changes
+  // Clear session storage if mode changes (runs only when mode changes, which is rare)
   useEffect(() => {
     const savedMode = sessionStorage.getItem('newAnalysis_mode');
     if (savedMode && savedMode !== mode) {
