@@ -523,17 +523,23 @@ export default function AnalysisPlayground() {
       sequencesCount: storedSequences.length,
       panelsCount: selectedPanels.length,
       panels: selectedPanels,
-      analysisId: id
+      analysisId: id,
+      realAnalysisDataLoaded: !!realAnalysisData,
+      realAnalysisDataPanels: realAnalysisData?.selected_panels
     });
     
     // Auto-start computation if requested from NewAnalysis and not already triggered
+    // CRITICAL: Only trigger once ALL conditions are met including data from database
     if (state?.autoStartComputation && 
         !autoStartTriggeredRef.current && 
         storedSequences.length > 0 && 
         selectedPanels.length > 0 && 
-        id) {
-      autoStartTriggeredRef.current = true;
+        id &&
+        realAnalysisData !== null) { // Wait for database fetch to complete
+      
       console.log('[autoStart] CONDITIONS MET - Auto-starting computation with panels:', selectedPanels);
+      autoStartTriggeredRef.current = true;
+      
       // Small delay to ensure component is fully mounted
       setTimeout(() => {
         handleStartComputation();
@@ -542,10 +548,11 @@ export default function AnalysisPlayground() {
       console.log('[autoStart] CONDITIONS NOT MET - Waiting for:', {
         needsSequences: storedSequences.length === 0,
         needsPanels: selectedPanels.length === 0,
-        needsId: !id
+        needsId: !id,
+        needsRealAnalysisData: realAnalysisData === null
       });
     }
-  }, [storedSequences, selectedPanels, id, location.state]);
+  }, [storedSequences, selectedPanels, id, location.state, realAnalysisData]);
 
   const handleStartComputation = async () => {
     if (!id) {

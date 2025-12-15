@@ -209,6 +209,11 @@ export default function NewAnalysis() {
       return;
     }
 
+    if (selectedPanels.length === 0) {
+      toast({ variant: "destructive", title: "No panels selected", description: "Please go back and select at least one feature panel" });
+      return;
+    }
+
     setIsSubmitting(true);
     
     console.log('[handleRunAnalysis] Creating analysis with:', {
@@ -766,7 +771,7 @@ export default function NewAnalysis() {
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back
                 </Button>
-                <Button variant="scientific" size="lg" onClick={handleRunAnalysis} disabled={isSubmitting}>
+                <Button variant="scientific" size="lg" onClick={handleRunAnalysis} disabled={isSubmitting || selectedPanels.length === 0}>
                   <Zap className="h-4 w-4 mr-2" />
                   {isSubmitting ? "Creating..." : "Run Analysis"}
                 </Button>
