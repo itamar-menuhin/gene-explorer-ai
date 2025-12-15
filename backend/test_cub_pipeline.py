@@ -174,7 +174,11 @@ def export_to_csv(data, filename):
 
 
 def generate_visualizations(df):
-    """Generate basic visualizations (mock for now)."""
+    """Generate basic visualizations."""
+    import matplotlib
+    matplotlib.use('Agg')  # Use non-interactive backend
+    import matplotlib.pyplot as plt
+    
     print("\n" + "=" * 80)
     print("TEST 4: Generate Visualizations")
     print("=" * 80)
@@ -204,8 +208,61 @@ def generate_visualizations(df):
             print(f"    Mean: {windowed_df[col].mean():.4f}")
             print(f"    Std: {windowed_df[col].std():.4f}")
     
-    print("\n✓ Visualization data prepared successfully!")
-    print("  (In a full implementation, this would generate actual plots)")
+    # Generate actual plots
+    if len(windowed_df) > 0:
+        print("\nGenerating visualizations...")
+        
+        # Create a figure with multiple subplots
+        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+        fig.suptitle('CUB Panel Features - Visualization', fontsize=14, fontweight='bold')
+        
+        # Plot 1: GC content distribution (global)
+        if len(global_df) > 0:
+            axes[0, 0].bar(global_df['sequenceId'], global_df['gc_content'])
+            axes[0, 0].set_title('GC Content (Global)')
+            axes[0, 0].set_ylabel('GC %')
+            axes[0, 0].tick_params(axis='x', rotation=45)
+        
+        # Plot 2: ENC distribution (global)
+        if len(global_df) > 0 and 'enc' in global_df.columns:
+            axes[0, 1].bar(global_df['sequenceId'], global_df['enc'])
+            axes[0, 1].set_title('Effective Number of Codons (Global)')
+            axes[0, 1].set_ylabel('ENC')
+            axes[0, 1].tick_params(axis='x', rotation=45)
+        
+        # Plot 3: Windowed GC content profile
+        for seq_id in windowed_df['sequenceId'].unique():
+            seq_data = windowed_df[windowed_df['sequenceId'] == seq_id]
+            if len(seq_data) > 0:
+                axes[1, 0].plot(seq_data['windowStart'], seq_data['gc_content'], 
+                              marker='o', label=seq_id)
+        axes[1, 0].set_title('GC Content Profile (Windowed)')
+        axes[1, 0].set_xlabel('Position')
+        axes[1, 0].set_ylabel('GC %')
+        axes[1, 0].legend()
+        axes[1, 0].grid(True, alpha=0.3)
+        
+        # Plot 4: Windowed ENC profile
+        if 'enc' in windowed_df.columns:
+            for seq_id in windowed_df['sequenceId'].unique():
+                seq_data = windowed_df[windowed_df['sequenceId'] == seq_id]
+                if len(seq_data) > 0:
+                    axes[1, 1].plot(seq_data['windowStart'], seq_data['enc'], 
+                                  marker='s', label=seq_id)
+            axes[1, 1].set_title('ENC Profile (Windowed)')
+            axes[1, 1].set_xlabel('Position')
+            axes[1, 1].set_ylabel('ENC')
+            axes[1, 1].legend()
+            axes[1, 1].grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        viz_path = '/tmp/cub_features_visualization.png'
+        plt.savefig(viz_path, dpi=100, bbox_inches='tight')
+        plt.close()
+        
+        print(f"✓ Visualization saved to {viz_path}")
+    
+    print("\n✓ Visualization generation complete!")
 
 
 def main():
