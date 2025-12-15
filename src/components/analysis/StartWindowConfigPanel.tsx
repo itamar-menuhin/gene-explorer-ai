@@ -19,25 +19,43 @@ export function StartWindowConfigPanel({
   maxSequenceLength = 10000,
   disabled = false,
 }: StartWindowConfigPanelProps) {
+  // Helper to calculate number of windows
+  const calculateNumWindows = (windowSize: number, stepSize: number, startIdx?: number, endIdx?: number) => {
+    const effectiveStart = startIdx ?? 0;
+    const effectiveEnd = endIdx ?? maxSequenceLength;
+    const effectiveLength = Math.max(0, effectiveEnd - effectiveStart);
+    
+    if (!config.enabled || windowSize <= 0 || stepSize <= 0 || effectiveLength < windowSize) {
+      return 0;
+    }
+    
+    return Math.max(1, Math.floor((effectiveLength - windowSize) / stepSize) + 1);
+  };
+
   const handleToggle = (enabled: boolean) => {
-    onChange({ ...config, enabled });
+    const numWindows = enabled ? calculateNumWindows(config.windowSize, config.stepSize, config.startIndex, config.endIndex) : 0;
+    onChange({ ...config, enabled, numWindows });
   };
 
   const handleWindowSizeChange = (value: number) => {
     const newStepSize = Math.min(config.stepSize, value);
-    onChange({ ...config, windowSize: value, stepSize: newStepSize });
+    const numWindows = calculateNumWindows(value, newStepSize, config.startIndex, config.endIndex);
+    onChange({ ...config, windowSize: value, stepSize: newStepSize, numWindows });
   };
 
   const handleStepSizeChange = (value: number) => {
-    onChange({ ...config, stepSize: value });
+    const numWindows = calculateNumWindows(config.windowSize, value, config.startIndex, config.endIndex);
+    onChange({ ...config, stepSize: value, numWindows });
   };
 
   const handleStartIndexChange = (value: number) => {
-    onChange({ ...config, startIndex: value || undefined });
+    const numWindows = calculateNumWindows(config.windowSize, config.stepSize, value || undefined, config.endIndex);
+    onChange({ ...config, startIndex: value || undefined, numWindows });
   };
 
   const handleEndIndexChange = (value: number) => {
-    onChange({ ...config, endIndex: value || undefined });
+    const numWindows = calculateNumWindows(config.windowSize, config.stepSize, config.startIndex, value || undefined);
+    onChange({ ...config, endIndex: value || undefined, numWindows });
   };
 
   const effectiveStart = config.startIndex ?? 0;

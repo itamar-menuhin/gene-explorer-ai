@@ -476,8 +476,11 @@ function computeWindowedFeatures(
       const { windowSize, stepSize, numWindows, startIndex = 0, endIndex } = windowConfig.start;
       const effectiveEnd = endIndex ?? seqLength;
       
+      // Calculate max windows if not provided
+      const maxWindows = numWindows ?? Math.max(1, Math.floor((effectiveEnd - startIndex - windowSize) / stepSize) + 1);
+      
       let windowCount = 0;
-      for (let start = startIndex; start + windowSize <= effectiveEnd && windowCount < numWindows; start += stepSize) {
+      for (let start = startIndex; start + windowSize <= effectiveEnd && windowCount < maxWindows; start += stepSize) {
         const windowSeq = sequence.slice(start, start + windowSize);
         const features = extractFeatures(windowSeq, enabledPanels, referenceSet);
         
@@ -499,11 +502,14 @@ function computeWindowedFeatures(
       const { windowSize, stepSize, numWindows, startIndex = 0, endIndex } = windowConfig.end;
       const effectiveEnd = endIndex ?? seqLength;
       
+      // Calculate max windows if not provided
+      const maxWindows = numWindows ?? Math.max(1, Math.floor((effectiveEnd - startIndex - windowSize) / stepSize) + 1);
+      
       // Calculate windows from the end
       const windowStarts: number[] = [];
       let currentEnd = effectiveEnd;
       
-      while (currentEnd - windowSize >= startIndex && windowStarts.length < numWindows) {
+      while (currentEnd - windowSize >= startIndex && windowStarts.length < maxWindows) {
         windowStarts.push(currentEnd - windowSize);
         currentEnd -= stepSize;
       }
