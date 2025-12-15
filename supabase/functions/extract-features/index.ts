@@ -438,6 +438,24 @@ function computeGlobalFeatures(
   };
 }
 
+// Helper to calculate maximum windows if numWindows is not provided
+function calculateMaxWindows(
+  seqLength: number,
+  windowSize: number,
+  stepSize: number,
+  startIndex: number,
+  endIndex?: number
+): number {
+  const effectiveEnd = endIndex ?? seqLength;
+  const effectiveLength = Math.max(0, effectiveEnd - startIndex);
+  
+  if (windowSize <= 0 || stepSize <= 0 || effectiveLength < windowSize) {
+    return 0;
+  }
+  
+  return Math.max(1, Math.floor((effectiveLength - windowSize) / stepSize) + 1);
+}
+
 function computeWindowedFeatures(
   sequences: SequenceInput[],
   enabledPanels: string[],
@@ -477,7 +495,7 @@ function computeWindowedFeatures(
       const effectiveEnd = endIndex ?? seqLength;
       
       // Calculate max windows if not provided
-      const maxWindows = numWindows ?? Math.max(1, Math.floor((effectiveEnd - startIndex - windowSize) / stepSize) + 1);
+      const maxWindows = numWindows ?? calculateMaxWindows(seqLength, windowSize, stepSize, startIndex, endIndex);
       
       let windowCount = 0;
       for (let start = startIndex; start + windowSize <= effectiveEnd && windowCount < maxWindows; start += stepSize) {
@@ -503,7 +521,7 @@ function computeWindowedFeatures(
       const effectiveEnd = endIndex ?? seqLength;
       
       // Calculate max windows if not provided
-      const maxWindows = numWindows ?? Math.max(1, Math.floor((effectiveEnd - startIndex - windowSize) / stepSize) + 1);
+      const maxWindows = numWindows ?? calculateMaxWindows(seqLength, windowSize, stepSize, startIndex, endIndex);
       
       // Calculate windows from the end
       const windowStarts: number[] = [];
