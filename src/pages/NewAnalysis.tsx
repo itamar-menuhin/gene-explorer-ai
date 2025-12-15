@@ -182,10 +182,10 @@ export default function NewAnalysis() {
   // Automatically fetch AI recommendations when entering panels step in guided mode
   // This triggers the AI agent call to recommend relevant feature panels
   useEffect(() => {
-    if (currentStep === 'panels' && isGuided && hypothesis && aiRecommendations.length === 0) {
+    if (currentStep === 'panels' && isGuided && hypothesis && aiRecommendations.length === 0 && !aiLoading) {
       handleGetRecommendations();
     }
-  }, [currentStep, isGuided, hypothesis]);
+  }, [currentStep, isGuided, hypothesis, aiLoading]);
 
   // Cleanup session storage when component unmounts (e.g., when navigating away)
   useEffect(() => {
@@ -436,8 +436,8 @@ export default function NewAnalysis() {
               </Card>
             )}
 
-            {/* AI Loading State */}
-            {aiLoading && isGuided && !panelsLoading && (
+            {/* AI Loading State - only show if no recommendations yet */}
+            {aiLoading && isGuided && !panelsLoading && aiRecommendations.length === 0 && (
               <Card variant="ocean" className="animate-pulse">
                 <CardContent className="p-6 flex items-center gap-4">
                   <Loader2 className="h-6 w-6 animate-spin text-ocean-600" />
@@ -450,8 +450,9 @@ export default function NewAnalysis() {
             )}
 
             {/* Panel List - Use AI recommendations sorted by relevance if available, else dynamic panels */}
+            {/* Show panels immediately, with AI recommendations overlaid when available */}
             {!panelsLoading && <div className="space-y-4">
-              {(isGuided && aiRecommendations.length > 0 ? 
+              {(aiRecommendations.length > 0 ? 
                 [...aiRecommendations].sort((a, b) => b.relevanceScore - a.relevanceScore).map((rec, index) => {
                   const panel = availablePanels.find(p => p.id === rec.panelId) || {
                     id: rec.panelId,
