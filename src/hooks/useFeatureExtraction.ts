@@ -194,14 +194,27 @@ export function flattenFeatureResults(
   if (results.mode === 'global') {
     return (results.results as GlobalFeatureResult[]).map(r => ({
       sequence_id: r.sequenceId,
+      sequence_name: r.sequenceName || r.sequenceId,
       ...r.features,
     }));
   } else {
-    return (results.results as WindowedFeatureResult[]).map(r => ({
-      sequence_id: r.sequenceId,
-      window_start: r.windowStart,
-      window_end: r.windowEnd,
-      ...r.features,
-    }));
+    // Windowed mode: results may contain both global (no window info) and windowed entries
+    return (results.results as WindowedFeatureResult[]).map(r => {
+      const hasWindowInfo = r.windowStart !== undefined && r.windowEnd !== undefined;
+      return {
+        sequence_id: r.sequenceId,
+        sequence_name: r.sequenceName || r.sequenceId,
+        ...(hasWindowInfo ? {
+          window_start: r.windowStart,
+          window_end: r.windowEnd,
+          window_type: r.windowType || 'global',
+        } : {
+          window_start: 0,
+          window_end: null,
+          window_type: 'global',
+        }),
+        ...r.features,
+      };
+    });
   }
 }
