@@ -62,8 +62,8 @@ export function useFeatureExtraction(options: UseFeatureExtractionOptions = {}) 
         throw new Error('No feature panels selected');
       }
 
-      // Batch sequences to avoid CPU timeout (500 sequences per batch)
-      const BATCH_SIZE = 500;
+      // Batch sequences to avoid CPU timeout (100 sequences per batch for windowed analysis)
+      const BATCH_SIZE = 100;
       const batches: SequenceInput[][] = [];
       for (let i = 0; i < sequences.length; i += BATCH_SIZE) {
         batches.push(sequences.slice(i, i + BATCH_SIZE));

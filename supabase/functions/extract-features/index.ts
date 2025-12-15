@@ -51,13 +51,18 @@ serve(async (req) => {
       .filter(([_, config]) => config.enabled)
       .map(([id]) => id);
 
-    // Determine if windowed analysis
+    // Determine if windowed analysis - SKIP for large batches to avoid compute limits
     const hasWindowing = windowConfig && (windowConfig.start?.enabled || windowConfig.end?.enabled);
+    const tooManySequences = sequences.length > 100; // Windowing is expensive, skip for large batches
     
     let results;
-    if (hasWindowing) {
+    if (hasWindowing && !tooManySequences) {
       results = computeWindowedFeatures(sequences, enabledPanels, windowConfig, referenceSet);
     } else {
+      // For large batches or no windowing, compute global features only
+      if (tooManySequences && hasWindowing) {
+        console.log(`Skipping windowing for batch of ${sequences.length} sequences to avoid compute limits`);
+      }
       results = computeGlobalFeatures(sequences, enabledPanels, referenceSet);
     }
 
