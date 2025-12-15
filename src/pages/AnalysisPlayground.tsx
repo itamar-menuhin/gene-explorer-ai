@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PanelRecommendation } from "@/hooks/usePanelRecommendations";
@@ -139,43 +139,63 @@ const computeDistributionData = (
   }));
 };
 
-const features = [
-  { 
-    id: "enc", 
+// Feature metadata for known features - used as fallback
+const FEATURE_METADATA: Record<string, { name: string; panel: string; description: string; citation: string }> = {
+  enc: { 
     name: "ENC (Effective Number of Codons)", 
     panel: "Codon Usage Bias",
     description: "The Effective Number of Codons (ENC) quantifies the degree of codon bias. Values range from 20 (extreme bias, only one codon per amino acid) to 61 (no bias, all codons used equally).",
     citation: "Wright F., 1990"
   },
-  { 
-    id: "cai", 
+  cai: { 
     name: "CAI Score", 
     panel: "Codon Adaptation Index",
     description: "The Codon Adaptation Index measures how well a gene's codon usage matches the codon usage of highly expressed reference genes. Higher values indicate better adaptation for efficient translation.",
     citation: "Sharp & Li, 1987"
   },
-  { 
-    id: "mfe", 
+  mfe: { 
     name: "MFE (Minimum Free Energy)", 
     panel: "mRNA Secondary Structure",
     description: "Minimum Free Energy predicts the most stable RNA secondary structure. More negative values indicate stronger, more stable structures which may affect translation efficiency.",
     citation: "Zuker M., 2003"
   },
-  { 
-    id: "gc", 
+  gc_content: { 
     name: "GC Content", 
-    panel: "GC Content Analysis",
+    panel: "Sequence Composition",
     description: "The percentage of guanine and cytosine bases in the sequence. GC content affects melting temperature, secondary structure stability, and codon usage patterns.",
     citation: "Various"
   },
-];
-
-const sequenceOptions = [
-  { id: "all", name: "All sequences (248)" },
-  { id: "gene_001", name: "GENE_001 - Stress response factor" },
-  { id: "gene_002", name: "GENE_002 - Heat shock protein" },
-  { id: "gene_003", name: "GENE_003 - Translation elongation" },
-];
+  isoelectric_point: {
+    name: "Isoelectric Point",
+    panel: "Chemical Properties",
+    description: "pH at which protein has no net charge",
+    citation: "Various"
+  },
+  instability_index: {
+    name: "Instability Index",
+    panel: "Chemical Properties",
+    description: "Protein stability prediction",
+    citation: "Various"
+  },
+  molecular_weight: {
+    name: "Molecular Weight",
+    panel: "Chemical Properties",
+    description: "Molecular mass of the protein",
+    citation: "Various"
+  },
+  gravy: {
+    name: "GRAVY",
+    panel: "Chemical Properties",
+    description: "Grand average of hydropathicity",
+    citation: "Various"
+  },
+  aromaticity_index: {
+    name: "Aromaticity Index",
+    panel: "Chemical Properties",
+    description: "Relative frequency of aromatic amino acids",
+    citation: "Various"
+  }
+};
 
 export default function AnalysisPlayground() {
   const { id } = useParams<{ id: string }>();
@@ -206,6 +226,9 @@ export default function AnalysisPlayground() {
   const [storedSequences, setStoredSequences] = useState<Array<{id: string; sequence: string; name?: string}>>([]);
   const [storedWindowConfig, setStoredWindowConfig] = useState<any>(null);
   
+  // Track if auto-start computation has been triggered
+  const autoStartTriggeredRef = useRef(false);
+  
   // Feature extraction hook
   const { 
     extractFeatures, 
@@ -218,7 +241,55 @@ export default function AnalysisPlayground() {
     }
   });
 
+  // Generate features list from extracted results or use fallback
+  const features = useMemo(() => {
+    if (featureNames.length > 0) {
+      return featureNames.map(featureId => {
+        const metadata = FEATURE_METADATA[featureId];
+        return metadata ? {
+          id: featureId,
+          ...metadata
+        } : {
+          id: featureId,
+          name: featureId.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+          panel: 'Unknown',
+          description: `Feature: ${featureId}`,
+          citation: 'N/A'
+        };
+      });
+    }
+    // Fallback to default features if no extraction results yet
+    return Object.entries(FEATURE_METADATA).slice(0, 4).map(([id, metadata]) => ({
+      id,
+      ...metadata
+    }));
+  }, [featureNames]);
+  
   const currentFeature = features.find(f => f.id === selectedFeature);
+  
+  // Generate sequence options from stored sequences
+  const sequenceOptions = useMemo(() => {
+    const actualCount = storedSequences.length || realAnalysisData?.sequence_count || 0;
+    const options = [{ id: "all", name: `All sequences (${actualCount})` }];
+    
+    // Add individual sequences from stored sequences
+    if (storedSequences.length > 0) {
+      storedSequences.slice(0, 10).forEach(seq => {
+        options.push({
+          id: seq.id,
+          name: `${seq.name || seq.id}`
+        });
+      });
+      if (storedSequences.length > 10) {
+        options.push({
+          id: "more",
+          name: `... and ${storedSequences.length - 10} more`
+        });
+      }
+    }
+    
+    return options;
+  }, [storedSequences, realAnalysisData]);
   
   // Fetch real analysis data from database
   useEffect(() => {
@@ -395,6 +466,7 @@ export default function AnalysisPlayground() {
     const state = location.state as { 
       aiRecommendations?: PanelRecommendation[];
       sequences?: Array<{id: string; sequence: string; name?: string}>;
+      autoStartComputation?: boolean;
     } | null;
     
     if (state?.aiRecommendations) {
@@ -406,6 +478,27 @@ export default function AnalysisPlayground() {
       console.log(`Loaded ${state.sequences.length} sequences from navigation state`);
     }
   }, [location.state]);
+  
+  // Auto-start computation effect (separate to avoid issues with handleStartComputation dependencies)
+  useEffect(() => {
+    const state = location.state as { 
+      autoStartComputation?: boolean;
+    } | null;
+    
+    // Auto-start computation if requested from NewAnalysis and not already triggered
+    if (state?.autoStartComputation && 
+        !autoStartTriggeredRef.current && 
+        storedSequences.length > 0 && 
+        selectedPanels.length > 0 && 
+        id) {
+      autoStartTriggeredRef.current = true;
+      console.log('Auto-starting computation as requested from analysis creation');
+      // Small delay to ensure component is fully mounted
+      setTimeout(() => {
+        handleStartComputation();
+      }, 500);
+    }
+  }, [storedSequences, selectedPanels, id, location.state]);
 
   const handleStartComputation = async () => {
     if (!id) {
@@ -518,10 +611,10 @@ export default function AnalysisPlayground() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {status === 'draft' && (
+            {status === 'completed' && (
               <Button variant="ocean" size="sm" onClick={handleStartComputation}>
                 <Play className="h-4 w-4 mr-2" />
-                Run Computation
+                Rerun Calculation
               </Button>
             )}
             {id && (
