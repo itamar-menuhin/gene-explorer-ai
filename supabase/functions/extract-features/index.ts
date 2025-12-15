@@ -503,6 +503,11 @@ function computeWindowedFeatures(
       // Calculate max windows if not provided
       const maxWindows = numWindows ?? calculateMaxWindows(seqLength, windowSize, stepSize, startIndex, endIndex);
       
+      // Debug log for first sequence
+      if (results.length <= 4) {
+        console.log(`Window calc for seq ${seq.id}: seqLength=${seqLength}, windowSize=${windowSize}, stepSize=${stepSize}, startIndex=${startIndex}, effectiveEnd=${effectiveEnd}, maxWindows=${maxWindows}`);
+      }
+      
       let windowCount = 0;
       for (let start = startIndex; start + windowSize <= effectiveEnd && windowCount < maxWindows; start += stepSize) {
         const windowSeq = sequence.slice(start, start + windowSize);
@@ -557,6 +562,8 @@ function computeWindowedFeatures(
       }
     }
   }
+
+  console.log(`Windowed computation complete: ${results.length} total results, ${totalWindows} windows`);
 
   return {
     success: true,
