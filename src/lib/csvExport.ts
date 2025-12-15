@@ -101,7 +101,7 @@ export function generateWindowedCSV(
       // Global value
       const globalValue = seqData.global?.features[feature];
       if (globalValue !== null && globalValue !== undefined) {
-        const numValue = typeof globalValue === 'number' ? Math.round(globalValue * 1000) / 1000 : globalValue;
+        const numValue = typeof globalValue === 'number' ? roundToThreeDecimals(globalValue) : globalValue;
         row.push(String(numValue));
       } else {
         row.push('');
@@ -112,7 +112,7 @@ export function generateWindowedCSV(
         if (i < seqData.windows.length) {
           const windowValue = seqData.windows[i].features[feature];
           if (windowValue !== null && windowValue !== undefined) {
-            const numValue = typeof windowValue === 'number' ? Math.round(windowValue * 1000) / 1000 : windowValue;
+            const numValue = typeof windowValue === 'number' ? roundToThreeDecimals(windowValue) : windowValue;
             row.push(String(numValue));
           } else {
             row.push('');
@@ -180,7 +180,7 @@ export function generateCSV(
     featureNames.forEach(feature => {
       const value = item.features[feature];
       if (value !== null && value !== undefined) {
-        const numValue = typeof value === 'number' ? Math.round(value * 1000) / 1000 : value;
+        const numValue = typeof value === 'number' ? roundToThreeDecimals(value) : value;
         row.push(String(numValue));
       } else {
         row.push('');
@@ -199,6 +199,10 @@ function escapeCSV(value: string, delimiter: string): string {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
+}
+
+function roundToThreeDecimals(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }
 
 export function downloadCSV(content: string, filename: string): void {

@@ -52,11 +52,14 @@ const computeProfileData = (
       .filter(r => r.sequenceId === selectedSequenceId)
       .sort((a, b) => a.windowStart - b.windowStart);
     
-    return seqWindows.map(w => ({
-      position: w.windowStart,
-      value: w.features?.[featureId] || 0,
-      q50: w.features?.[featureId] || 0,
-    }));
+    return seqWindows.map(w => {
+      const featureValue = w.features?.[featureId] || 0;
+      return {
+        position: w.windowStart,
+        value: featureValue,
+        q50: featureValue, // For single sequence, median equals the value
+      };
+    });
   }
 
   // For "all sequences", compute quantiles across sequences at each window position
@@ -116,10 +119,12 @@ const computeDistributionData = (
     return [];
   }
 
-  // Calculate histogram
+  // Calculate histogram with dynamic binning
+  const MAX_BINS = 50;
+  const BIN_MULTIPLIER = 2;
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const binCount = Math.min(50, Math.ceil(Math.sqrt(values.length)) * 2);
+  const binCount = Math.min(MAX_BINS, Math.ceil(Math.sqrt(values.length)) * BIN_MULTIPLIER);
   const binSize = (max - min) / binCount;
 
   const bins = new Array(binCount).fill(0);
