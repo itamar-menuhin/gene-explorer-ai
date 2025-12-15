@@ -637,7 +637,7 @@ export default function AnalysisPlayground() {
               analysisName={analysisName.replace(/\s+/g, '_')}
               citations={mockCitations}
             >
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" disabled={featureData.length === 0}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>
