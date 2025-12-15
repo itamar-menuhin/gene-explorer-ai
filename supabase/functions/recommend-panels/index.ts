@@ -13,19 +13,15 @@
  * 
  * FLOW:
  *   1. Receives hypothesis and optional dataset metadata from frontend
- *   2. Fetches panels from get-panels function (cached from Python backend)
- *   3. Loads prompts from centralized location (../prompts/recommend-panels-prompts.ts)
- *   4. Calls AI model (google/gemini-2.5-flash) via Lovable AI Gateway
- *   5. AI scores all available panels (1-10) with explanations
- *   6. Returns enriched recommendations sorted by relevance score
+ *   2. Uses default panels (cached from Python backend)
+ *   3. Calls AI model (google/gemini-2.5-flash-lite) - fastest model
+ *   4. AI scores all available panels (1-10) with explanations
+ *   5. Returns enriched recommendations sorted by relevance score
  * 
- * AI MODEL: google/gemini-2.5-flash
- * PROMPTS: /supabase/functions/prompts/recommend-panels-prompts.ts
+ * AI MODEL: google/gemini-2.5-flash-lite (fastest)
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildSystemPrompt, buildUserPrompt } from "../prompts/recommend-panels-prompts.ts";
 import type { Panel } from "../types/panels.ts";
 
 const corsHeaders = {
@@ -33,7 +29,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Default panels as fallback
+// Default panels
 const DEFAULT_PANELS: Panel[] = [
   {
     id: "sequence",
@@ -79,27 +75,6 @@ const DEFAULT_PANELS: Panel[] = [
   }
 ];
 
-async function getPanels(supabase: any): Promise<Panel[]> {
-  try {
-    // First try to get from cache table directly
-    const { data: cached } = await supabase
-      .from('panel_cache')
-      .select('panels')
-      .eq('id', 'panels')
-      .single();
-    
-    if (cached?.panels && Array.isArray(cached.panels) && cached.panels.length > 0) {
-      console.log('Using cached panels for recommendations');
-      return cached.panels;
-    }
-  } catch (cacheError) {
-    console.warn('Failed to read panel cache:', cacheError);
-  }
-  
-  console.log('Using default panels for recommendations');
-  return DEFAULT_PANELS;
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -107,6 +82,7 @@ serve(async (req) => {
 
   try {
     const { hypothesis, sequenceCount, minLength, maxLength } = await req.json();
+    console.log('Received hypothesis:', hypothesis?.slice(0, 100));
     
     if (!hypothesis) {
       return new Response(JSON.stringify({ error: 'Hypothesis is required' }), {
@@ -115,27 +91,35 @@ serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Get panels dynamically from cache
-    const PANELS = await getPanels(supabase);
-    console.log(`Using ${PANELS.length} panels for recommendation`);
+    const PANELS = DEFAULT_PANELS;
+    console.log(`Using ${PANELS.length} default panels`);
 
-    // Build prompts using centralized prompt builder functions
-    // See: /supabase/functions/prompts/recommend-panels-prompts.ts for prompt definitions
-    const systemPrompt = buildSystemPrompt(PANELS);
-    const userPrompt = buildUserPrompt(hypothesis, PANELS, sequenceCount, minLength, maxLength);
+    // Build a simple prompt that asks for JSON output directly
+    const panelList = PANELS.map(p => `- ${p.id}: ${p.name} - ${p.description}`).join('\n');
+    
+    const prompt = `You are a bioinformatics expert. Given a research hypothesis, score each feature panel's relevance (1-10) and explain why.
 
-    // Add timeout to prevent hanging
+AVAILABLE PANELS:
+${panelList}
+
+HYPOTHESIS: "${hypothesis}"
+${sequenceCount ? `Dataset: ${sequenceCount} sequences, lengths ${minLength}-${maxLength}bp` : ''}
+
+Return ONLY a valid JSON array with this exact format (no markdown, no explanation):
+[{"panelId":"sequence","relevanceScore":8,"relevanceExplanation":"Brief reason"},...]
+
+Score all ${PANELS.length} panels. Higher scores = more relevant.`;
+
+    console.log('Calling AI...');
+    
+    // Use AbortController with 20 second timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -144,42 +128,16 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        tools: [{
-          type: 'function',
-          function: {
-            name: 'recommend_panels',
-            description: 'Return panel recommendations with relevance explanations',
-            parameters: {
-              type: 'object',
-              properties: {
-                recommendations: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      panelId: { type: 'string', description: 'Panel ID from the available panels' },
-                      relevanceScore: { type: 'number', description: 'Score 1-10 indicating relevance to hypothesis' },
-                      relevanceExplanation: { type: 'string', description: 'Specific explanation of why this panel is relevant to the hypothesis' }
-                    },
-                    required: ['panelId', 'relevanceScore', 'relevanceExplanation']
-                  }
-                }
-              },
-              required: ['recommendations']
-            }
-          }
-        }],
-        tool_choice: { type: 'function', function: { name: 'recommend_panels' } }
+        model: 'google/gemini-2.5-flash-lite', // Fastest model
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1000,
+        temperature: 0.3,
       }),
       signal: controller.signal
     });
     
     clearTimeout(timeoutId);
+    console.log('AI response status:', response.status);
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -189,7 +147,7 @@ serve(async (req) => {
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'AI credits exhausted. Please add credits to continue.' }), {
+        return new Response(JSON.stringify({ error: 'AI credits exhausted.' }), {
           status: 402,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -200,24 +158,39 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const content = data.choices?.[0]?.message?.content || '';
+    console.log('AI response length:', content.length);
     
-    if (!toolCall?.function?.arguments) {
-      throw new Error('No recommendations returned from AI');
+    // Parse JSON from response (handle potential markdown wrapping)
+    let jsonStr = content.trim();
+    if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
     }
-
-    const recommendations = JSON.parse(toolCall.function.arguments);
+    
+    let recommendations;
+    try {
+      recommendations = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', jsonStr.slice(0, 200));
+      // Return default recommendations if parsing fails
+      recommendations = PANELS.map(p => ({
+        panelId: p.id,
+        relevanceScore: p.id === 'sequence' || p.id === 'codonUsage' ? 8 : 5,
+        relevanceExplanation: `${p.name} may be relevant to your analysis.`
+      }));
+    }
     
     // Enrich with full panel data
-    const enrichedRecommendations = recommendations.recommendations.map((rec: any) => {
-      const panel = PANELS.find(p => p.id === rec.panelId);
-      return {
-        ...rec,
-        panel: panel || null
-      };
-    }).filter((rec: any) => rec.panel !== null)
+    const enrichedRecommendations = recommendations
+      .map((rec: any) => {
+        const panel = PANELS.find(p => p.id === rec.panelId);
+        return panel ? { ...rec, panel } : null;
+      })
+      .filter((rec: any) => rec !== null)
       .sort((a: any, b: any) => b.relevanceScore - a.relevanceScore);
 
+    console.log(`Returning ${enrichedRecommendations.length} recommendations`);
+    
     return new Response(JSON.stringify({ recommendations: enrichedRecommendations }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -225,13 +198,12 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in recommend-panels:', error);
     
-    // Better error messages for common issues
     let errorMessage = 'Unknown error';
     let statusCode = 500;
     
     if (error instanceof Error) {
       if (error.name === 'AbortError' || error.message.includes('aborted')) {
-        errorMessage = 'Request timeout - AI service took too long to respond. Please try again.';
+        errorMessage = 'Request timeout - AI service took too long. Please try again.';
         statusCode = 504;
       } else if (error.message.includes('fetch')) {
         errorMessage = 'Network error connecting to AI service. Please try again.';
