@@ -25,6 +25,7 @@ export type Database = {
           min_length: number | null
           mode: string
           name: string
+          results: Json | null
           selected_panels: string[] | null
           sequence_count: number | null
           sequences: Json | null
@@ -44,6 +45,7 @@ export type Database = {
           min_length?: number | null
           mode?: string
           name: string
+          results?: Json | null
           selected_panels?: string[] | null
           sequence_count?: number | null
           sequences?: Json | null
@@ -63,6 +65,7 @@ export type Database = {
           min_length?: number | null
           mode?: string
           name?: string
+          results?: Json | null
           selected_panels?: string[] | null
           sequence_count?: number | null
           sequences?: Json | null
