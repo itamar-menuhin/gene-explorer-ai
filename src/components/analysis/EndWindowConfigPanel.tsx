@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Slider } from '@/components/ui/slider';
 import { ArrowLeft } from 'lucide-react';
 import type { SingleWindowConfig } from '@/types/featureExtraction';
+import { calculateNumWindows } from '@/lib/windowCalculations';
 
 interface EndWindowConfigPanelProps {
   config: SingleWindowConfig;
@@ -20,24 +21,39 @@ export function EndWindowConfigPanel({
   disabled = false,
 }: EndWindowConfigPanelProps) {
   const handleToggle = (enabled: boolean) => {
-    onChange({ ...config, enabled });
+    const numWindows = enabled 
+      ? calculateNumWindows(config.windowSize, config.stepSize, config.startIndex, config.endIndex, maxSequenceLength)
+      : 0;
+    onChange({ ...config, enabled, numWindows });
   };
 
   const handleWindowSizeChange = (value: number) => {
     const newStepSize = Math.min(config.stepSize, value);
-    onChange({ ...config, windowSize: value, stepSize: newStepSize });
+    const numWindows = config.enabled
+      ? calculateNumWindows(value, newStepSize, config.startIndex, config.endIndex, maxSequenceLength)
+      : 0;
+    onChange({ ...config, windowSize: value, stepSize: newStepSize, numWindows });
   };
 
   const handleStepSizeChange = (value: number) => {
-    onChange({ ...config, stepSize: value });
+    const numWindows = config.enabled
+      ? calculateNumWindows(config.windowSize, value, config.startIndex, config.endIndex, maxSequenceLength)
+      : 0;
+    onChange({ ...config, stepSize: value, numWindows });
   };
 
   const handleStartIndexChange = (value: number) => {
-    onChange({ ...config, startIndex: value || undefined });
+    const numWindows = config.enabled
+      ? calculateNumWindows(config.windowSize, config.stepSize, value || undefined, config.endIndex, maxSequenceLength)
+      : 0;
+    onChange({ ...config, startIndex: value || undefined, numWindows });
   };
 
   const handleEndIndexChange = (value: number) => {
-    onChange({ ...config, endIndex: value || undefined });
+    const numWindows = config.enabled
+      ? calculateNumWindows(config.windowSize, config.stepSize, config.startIndex, value || undefined, maxSequenceLength)
+      : 0;
+    onChange({ ...config, endIndex: value || undefined, numWindows });
   };
 
   const effectiveStart = config.startIndex ?? 0;

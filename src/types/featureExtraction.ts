@@ -11,6 +11,7 @@ export interface SingleWindowConfig {
   enabled: boolean;
   windowSize: number;
   stepSize: number;
+  numWindows?: number; // Maximum number of windows to generate (calculated from sequence length if not provided)
   startIndex?: number;
   endIndex?: number;
 }
