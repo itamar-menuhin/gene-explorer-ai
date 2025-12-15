@@ -26,39 +26,118 @@ import { useToast } from "@/hooks/use-toast";
 import { useFeatureExtraction } from "@/hooks/useFeatureExtraction";
 import type { FeaturePanelConfig } from "@/types/featureExtraction";
 
-// Mock data for visualizations
-const generateProfileData = () => {
-  const data = [];
-  for (let i = 0; i < 100; i++) {
-    const base = 0.5 + Math.sin(i / 10) * 0.15;
-    data.push({
-      position: i * 3,
-      value: base + (Math.random() - 0.5) * 0.2,
-      q95: base + 0.25 + Math.random() * 0.05,
-      q75: base + 0.15 + Math.random() * 0.03,
-      q50: base + Math.random() * 0.02,
-      q25: base - 0.15 - Math.random() * 0.03,
-      q5: base - 0.25 - Math.random() * 0.05,
+/**
+ * Compute real profile data from windowed results
+ * Groups windows by position and calculates quantiles across sequences
+ */
+const computeProfileData = (
+  windowedResults: any[],
+  featureId: string,
+  selectedSequenceId: string | null
+) => {
+  if (!windowedResults || windowedResults.length === 0) {
+    return [];
+  }
+
+  // Filter for windowed results only (those with windowStart/windowEnd)
+  const windowedData = windowedResults.filter(r => r.windowStart !== undefined);
+  
+  if (windowedData.length === 0) {
+    return [];
+  }
+
+  // If specific sequence selected, return its data
+  if (selectedSequenceId && selectedSequenceId !== 'all') {
+    const seqWindows = windowedData
+      .filter(r => r.sequenceId === selectedSequenceId)
+      .sort((a, b) => a.windowStart - b.windowStart);
+    
+    return seqWindows.map(w => {
+      const featureValue = w.features?.[featureId] || 0;
+      return {
+        position: w.windowStart,
+        value: featureValue,
+        q50: featureValue, // For single sequence, median equals the value
+      };
     });
   }
-  return data;
+
+  // For "all sequences", compute quantiles across sequences at each window position
+  const windowPositions = new Map<number, number[]>();
+  
+  windowedData.forEach(w => {
+    const pos = w.windowStart;
+    const value = w.features?.[featureId];
+    if (typeof value === 'number') {
+      if (!windowPositions.has(pos)) {
+        windowPositions.set(pos, []);
+      }
+      windowPositions.get(pos)!.push(value);
+    }
+  });
+
+  // Calculate quantiles for each position
+  const profileData = Array.from(windowPositions.entries())
+    .map(([position, values]) => {
+      values.sort((a, b) => a - b);
+      const len = values.length;
+      
+      return {
+        position,
+        value: values[Math.floor(len * 0.5)] || 0,
+        q95: values[Math.floor(len * 0.95)] || 0,
+        q75: values[Math.floor(len * 0.75)] || 0,
+        q50: values[Math.floor(len * 0.5)] || 0,
+        q25: values[Math.floor(len * 0.25)] || 0,
+        q5: values[Math.floor(len * 0.05)] || 0,
+      };
+    })
+    .sort((a, b) => a.position - b.position);
+
+  return profileData;
 };
 
-const generateDistributionData = () => {
-  const data = [];
-  for (let i = 0; i < 50; i++) {
-    const x = 0.2 + (i / 50) * 0.6;
-    const height = Math.exp(-Math.pow((x - 0.55) / 0.12, 2) / 2) * 100;
-    data.push({
-      value: x.toFixed(2),
-      count: Math.round(height + Math.random() * 10),
-    });
+/**
+ * Compute distribution data from global results
+ * Creates histogram of feature values across all sequences
+ */
+const computeDistributionData = (
+  globalResults: any[],
+  featureId: string
+) => {
+  if (!globalResults || globalResults.length === 0) {
+    return [];
   }
-  return data;
-};
 
-const profileData = generateProfileData();
-const distributionData = generateDistributionData();
+  // Extract feature values from global results (those without windowStart)
+  const values = globalResults
+    .filter(r => r.windowStart === undefined)
+    .map(r => r.features?.[featureId])
+    .filter((v): v is number => typeof v === 'number');
+
+  if (values.length === 0) {
+    return [];
+  }
+
+  // Calculate histogram with dynamic binning
+  const MAX_BINS = 50;
+  const BIN_MULTIPLIER = 2;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const binCount = Math.min(MAX_BINS, Math.ceil(Math.sqrt(values.length)) * BIN_MULTIPLIER);
+  const binSize = (max - min) / binCount;
+
+  const bins = new Array(binCount).fill(0);
+  values.forEach(v => {
+    const binIndex = Math.min(Math.floor((v - min) / binSize), binCount - 1);
+    bins[binIndex]++;
+  });
+
+  return bins.map((count, i) => ({
+    value: (min + (i + 0.5) * binSize).toFixed(3),
+    count,
+  }));
+};
 
 const features = [
   { 
@@ -241,7 +320,10 @@ export default function AnalysisPlayground() {
           sequenceName: r.sequenceName || r.sequenceId,
           sequenceLength: seq?.sequence?.length || 0,
           features: r.features || {},
-          annotations: {}
+          annotations: {},
+          // Include window information if present
+          windowStart: r.windowStart,
+          windowEnd: r.windowEnd
         };
       });
     }
@@ -262,6 +344,26 @@ export default function AnalysisPlayground() {
     }
     return getAllFeatureNames(selectedPanels);
   }, [extractedResults, selectedPanels]);
+  
+  // Compute real profile data from windowed results
+  const profileData = useMemo(() => {
+    if (!extractedResults?.results || extractedResults.mode !== 'windowed') {
+      return [];
+    }
+    return computeProfileData(
+      extractedResults.results,
+      selectedFeature,
+      selectedSequence === 'all' ? null : selectedSequence
+    );
+  }, [extractedResults, selectedFeature, selectedSequence]);
+
+  // Compute real distribution data from global results
+  const distributionData = useMemo(() => {
+    if (!extractedResults?.results) {
+      return [];
+    }
+    return computeDistributionData(extractedResults.results, selectedFeature);
+  }, [extractedResults, selectedFeature]);
   
   const mockCitations = [
     { title: 'The effective number of codons used in a gene', authors: 'Wright F.', year: 1990, journal: 'Gene', doi: '10.1016/0378-1119(90)90491-9' },
@@ -675,6 +777,14 @@ export default function AnalysisPlayground() {
                     </div>
                   </CardHeader>
                   <CardContent>
+                    {profileData.length === 0 ? (
+                      <div className="h-80 flex items-center justify-center text-muted-foreground">
+                        <div className="text-center">
+                          <p className="text-sm">No windowed data available</p>
+                          <p className="text-xs mt-2">Enable windowed analysis to see position profiles</p>
+                        </div>
+                      </div>
+                    ) : (
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={profileData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
@@ -753,8 +863,10 @@ export default function AnalysisPlayground() {
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
+                    )}
                     
                     {/* Legend */}
+                    {profileData.length > 0 && (
                     <div className="flex items-center justify-center gap-6 mt-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-0.5 bg-ocean-500" />
@@ -775,6 +887,7 @@ export default function AnalysisPlayground() {
                         </div>
                       )}
                     </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -823,6 +936,14 @@ export default function AnalysisPlayground() {
                     </div>
                   </CardHeader>
                   <CardContent>
+                    {distributionData.length === 0 ? (
+                      <div className="h-80 flex items-center justify-center text-muted-foreground">
+                        <div className="text-center">
+                          <p className="text-sm">No distribution data available</p>
+                          <p className="text-xs mt-2">Run computation to see feature distributions</p>
+                        </div>
+                      </div>
+                    ) : (
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={distributionData}>
@@ -882,21 +1003,42 @@ export default function AnalysisPlayground() {
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
+                    )}
 
                     {/* Summary Stats */}
-                    <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t border-slate-200">
-                      {[
-                        { label: "Mean", value: "0.548" },
-                        { label: "Median", value: "0.562" },
-                        { label: "Std Dev", value: "0.089" },
-                        { label: "Range", value: "0.31 - 0.79" },
-                      ].map((stat) => (
-                        <div key={stat.label} className="text-center">
-                          <p className="text-sm text-muted-foreground">{stat.label}</p>
-                          <p className="font-semibold font-mono">{stat.value}</p>
+                    {distributionData.length > 0 && (() => {
+                      // Compute real statistics from extracted results
+                      const values = extractedResults?.results
+                        ?.filter((r: any) => r.windowStart === undefined)
+                        .map((r: any) => r.features?.[selectedFeature])
+                        .filter((v: any): v is number => typeof v === 'number') || [];
+                      
+                      if (values.length === 0) return null;
+                      
+                      values.sort((a, b) => a - b);
+                      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+                      const median = values[Math.floor(values.length / 2)];
+                      const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+                      const stdDev = Math.sqrt(variance);
+                      const min = values[0];
+                      const max = values[values.length - 1];
+                      
+                      return (
+                        <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t border-slate-200">
+                          {[
+                            { label: "Mean", value: mean.toFixed(3) },
+                            { label: "Median", value: median.toFixed(3) },
+                            { label: "Std Dev", value: stdDev.toFixed(3) },
+                            { label: "Range", value: `${min.toFixed(2)} - ${max.toFixed(2)}` },
+                          ].map((stat) => (
+                            <div key={stat.label} className="text-center">
+                              <p className="text-sm text-muted-foreground">{stat.label}</p>
+                              <p className="font-semibold font-mono">{stat.value}</p>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               </TabsContent>
