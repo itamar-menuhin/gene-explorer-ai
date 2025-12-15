@@ -1,8 +1,11 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Bookmark, Clock } from "lucide-react";
+import { ArrowRight, Bookmark, Clock, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Template {
   id: string;
@@ -13,32 +16,63 @@ interface Template {
   isDefault?: boolean;
 }
 
-const mockTemplates: Template[] = [
-  {
-    id: "1",
-    name: "Standard Codon Analysis",
-    description: "Complete codon usage bias and adaptation index calculations",
-    panelCount: 3,
-    usageCount: 24,
-    isDefault: true,
-  },
-  {
-    id: "2",
-    name: "mRNA Structure Suite",
-    description: "Secondary structure predictions and folding energy profiles",
-    panelCount: 4,
-    usageCount: 12,
-  },
-  {
-    id: "3",
-    name: "Expression Correlates",
-    description: "Features known to correlate with gene expression levels",
-    panelCount: 5,
-    usageCount: 8,
-  },
-];
-
 export function TemplatesPreview() {
+  const { user } = useAuth();
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchTemplates() {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('templates')
+          .select('id, name, description, selected_panels, is_default, usage_count')
+          .eq('user_id', user.id)
+          .order('usage_count', { ascending: false })
+          .limit(3);
+
+        if (error) throw error;
+
+        if (data) {
+          const formattedTemplates: Template[] = data.map(t => ({
+            id: t.id,
+            name: t.name || 'Untitled Template',
+            description: t.description || '',
+            panelCount: Array.isArray(t.selected_panels) ? t.selected_panels.length : 0,
+            usageCount: t.usage_count || 0,
+            isDefault: t.is_default || false,
+          }));
+          setTemplates(formattedTemplates);
+        }
+      } catch (error) {
+        console.error('Error fetching templates:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTemplates();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <section className="mt-12">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </section>
+    );
+  }
+
+  if (!user || templates.length === 0) {
+    return null;
+  }
+
   return (
     <section className="mt-12">
       <div className="flex items-center justify-between mb-6">
@@ -54,7 +88,7 @@ export function TemplatesPreview() {
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
-        {mockTemplates.map((template, index) => (
+        {templates.map((template, index) => (
           <Card 
             key={template.id} 
             variant="default"

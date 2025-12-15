@@ -1,8 +1,12 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Calendar, Dna, FileText, Clock } from "lucide-react";
+import { ArrowRight, Calendar, Dna, FileText, Clock, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatDistanceToNow } from "date-fns";
 
 interface Analysis {
   id: string;
@@ -10,46 +14,74 @@ interface Analysis {
   hypothesis?: string;
   sequenceCount: number;
   panelsComputed: number;
-  status: "completed" | "in_progress" | "draft";
+  status: "completed" | "computing" | "draft";
   createdAt: string;
 }
 
-const mockAnalyses: Analysis[] = [
-  {
-    id: "1",
-    name: "Stress Response Codon Analysis",
-    hypothesis: "Highly expressed genes under stress have distinctive codon usage",
-    sequenceCount: 248,
-    panelsComputed: 4,
-    status: "completed",
-    createdAt: "2 hours ago",
-  },
-  {
-    id: "2",
-    name: "mRNA Secondary Structure Study",
-    hypothesis: "5' UTR folding correlates with translation efficiency",
-    sequenceCount: 156,
-    panelsComputed: 2,
-    status: "in_progress",
-    createdAt: "1 day ago",
-  },
-  {
-    id: "3",
-    name: "Quick Feature Check",
-    sequenceCount: 12,
-    panelsComputed: 6,
-    status: "completed",
-    createdAt: "3 days ago",
-  },
-];
-
 const statusConfig = {
   completed: { label: "Completed", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  in_progress: { label: "In Progress", className: "bg-ocean-100 text-ocean-700 border-ocean-200" },
+  computing: { label: "Computing", className: "bg-ocean-100 text-ocean-700 border-ocean-200" },
   draft: { label: "Draft", className: "bg-slate-100 text-slate-600 border-slate-200" },
 };
 
 export function RecentAnalyses() {
+  const { user } = useAuth();
+  const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchAnalyses() {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('analyses')
+          .select('id, name, hypothesis, sequence_count, selected_panels, status, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        if (error) throw error;
+
+        if (data) {
+          const formattedAnalyses: Analysis[] = data.map(a => ({
+            id: a.id,
+            name: a.name || 'Untitled Analysis',
+            hypothesis: a.hypothesis || undefined,
+            sequenceCount: a.sequence_count || 0,
+            panelsComputed: Array.isArray(a.selected_panels) ? a.selected_panels.length : 0,
+            status: (a.status as "completed" | "computing" | "draft") || 'draft',
+            createdAt: formatDistanceToNow(new Date(a.created_at), { addSuffix: true }),
+          }));
+          setAnalyses(formattedAnalyses);
+        }
+      } catch (error) {
+        console.error('Error fetching analyses:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchAnalyses();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <section>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </section>
+    );
+  }
+
+  if (!user || analyses.length === 0) {
+    return null;
+  }
+
   return (
     <section>
       <div className="flex items-center justify-between mb-6">
@@ -63,7 +95,7 @@ export function RecentAnalyses() {
       </div>
 
       <div className="grid gap-4">
-        {mockAnalyses.map((analysis, index) => (
+        {analyses.map((analysis, index) => (
           <Card 
             key={analysis.id} 
             variant="interactive"
