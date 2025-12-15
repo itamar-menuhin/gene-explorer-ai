@@ -47,6 +47,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
   const handleExport = () => {
     // Validate that we have data to export
+    // Note: This check is kept even though the button is disabled, as defense-in-depth
+    // in case the dialog is opened programmatically or state changes during render
     if (exportType === 'features' && featureData.length === 0) {
       toast({ 
         variant: 'destructive', 
@@ -67,8 +69,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         if (!csv || csv.trim().length === 0) {
           toast({ 
             variant: 'destructive', 
-            title: 'No data to export', 
-            description: 'The feature data is empty. Please run the computation first.' 
+            title: 'Export failed', 
+            description: 'Unable to generate CSV. The data may be incomplete or invalid.' 
           });
           setExporting(false);
           return;
