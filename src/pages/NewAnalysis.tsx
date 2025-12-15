@@ -187,6 +187,16 @@ export default function NewAnalysis() {
     }
   }, [currentStep, isGuided, hypothesis]);
 
+  // Cleanup session storage when component unmounts (e.g., when navigating away)
+  useEffect(() => {
+    return () => {
+      // Only clear if we're actually leaving the page (not just re-rendering)
+      // This cleanup runs when the component unmounts
+      sessionStorage.removeItem('newAnalysis_currentStep');
+      sessionStorage.removeItem('newAnalysis_mode');
+    };
+  }, []);
+
   const handleRunAnalysis = async () => {
     if (!user) {
       toast({ variant: "destructive", title: "Please sign in to run analysis" });
@@ -233,10 +243,6 @@ export default function NewAnalysis() {
       toast({ variant: "destructive", title: "Failed to create analysis", description: error.message });
       console.error("Database error creating analysis:", error);
     } else if (data) {
-      // Clear session storage since we're successfully navigating away
-      sessionStorage.removeItem('newAnalysis_currentStep');
-      sessionStorage.removeItem('newAnalysis_mode');
-      
       toast({ title: "Analysis created", description: "Starting computation..." });
       // Pass AI recommendations, sequences, and auto-start flag via state
       navigate(`/analysis/${data.id}`, { 
