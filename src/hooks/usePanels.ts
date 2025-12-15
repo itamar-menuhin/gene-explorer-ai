@@ -1,8 +1,9 @@
 /**
- * Hook for fetching panels from the backend
+ * Hook for fetching panels from the database cache
  * 
- * This hook provides access to the dynamically cached panels
- * from the Python backend, with proper loading and error states.
+ * This hook loads panels directly from the database cache for instant access.
+ * The cache is populated by the Python backend (via get-panels edge function)
+ * and only needs to be refreshed when the backend changes.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -24,7 +25,7 @@ interface UsePanelsResult {
   source: 'cache' | 'python_backend' | 'default' | 'error_fallback' | null;
 }
 
-// Default panels as fallback
+// Default panels as fallback - used immediately while cache loads
 const DEFAULT_PANELS: Panel[] = [
   {
     id: "sequence",
@@ -71,51 +72,70 @@ const DEFAULT_PANELS: Panel[] = [
 ];
 
 export function usePanels(): UsePanelsResult {
+  // Start with defaults for instant UI rendering
   const [panels, setPanels] = useState<Panel[]>(DEFAULT_PANELS);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Don't block UI, defaults are available
   const [error, setError] = useState<string | null>(null);
-  const [source, setSource] = useState<UsePanelsResult['source']>(null);
+  const [source, setSource] = useState<UsePanelsResult['source']>('default');
 
-  const fetchPanels = useCallback(async (forceRefresh = false) => {
+  // Load panels directly from database cache (fast!)
+  const loadFromCache = useCallback(async () => {
+    try {
+      const { data, error: queryError } = await supabase
+        .from('panel_cache')
+        .select('panels')
+        .eq('id', 'panels')
+        .maybeSingle();
+      
+      if (queryError) {
+        console.warn('Failed to load panels from cache:', queryError.message);
+        return false;
+      }
+      
+      if (data?.panels && Array.isArray(data.panels) && data.panels.length > 0) {
+        setPanels(data.panels as unknown as Panel[]);
+        setSource('cache');
+        return true;
+      }
+      
+      return false;
+    } catch (err) {
+      console.warn('Error loading panels from cache:', err);
+      return false;
+    }
+  }, []);
+
+  // Refresh from Python backend via edge function (slow, only when needed)
+  const refresh = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
       const { data, error: invokeError } = await supabase.functions.invoke('get-panels', {
         body: {},
-        headers: forceRefresh ? { 'x-refresh': 'true' } : undefined
+        headers: { 'x-refresh': 'true' }
       });
       
       if (invokeError) {
-        throw new Error(invokeError.message || 'Failed to fetch panels');
+        throw new Error(invokeError.message || 'Failed to refresh panels');
       }
       
       if (data?.panels && Array.isArray(data.panels) && data.panels.length > 0) {
         setPanels(data.panels);
-        setSource(data.source || 'cache');
-      } else {
-        console.warn('No panels returned, using defaults');
-        setPanels(DEFAULT_PANELS);
-        setSource('default');
+        setSource(data.source || 'python_backend');
       }
     } catch (err) {
-      console.error('Error fetching panels:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch panels');
-      // Keep using default panels on error
-      setPanels(DEFAULT_PANELS);
-      setSource('error_fallback');
+      console.error('Error refreshing panels:', err);
+      setError(err instanceof Error ? err.message : 'Failed to refresh panels');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const refresh = useCallback(async () => {
-    await fetchPanels(true);
-  }, [fetchPanels]);
-
+  // On mount, try to load from cache (non-blocking)
   useEffect(() => {
-    fetchPanels();
-  }, [fetchPanels]);
+    loadFromCache();
+  }, [loadFromCache]);
 
   return { panels, loading, error, refresh, source };
 }
