@@ -50,7 +50,24 @@ export default function NewAnalysis() {
   const mode = searchParams.get("mode") || "guided";
   const isGuided = mode === "guided";
 
-  const [currentStep, setCurrentStep] = useState<Step>(isGuided ? "hypothesis" : "upload");
+  // Persist step in sessionStorage to prevent losing progress on navigation
+  const getInitialStep = (): Step => {
+    const savedStep = sessionStorage.getItem('newAnalysis_currentStep');
+    const savedMode = sessionStorage.getItem('newAnalysis_mode');
+    
+    // Validate that savedStep is a valid Step value
+    const validSteps: Step[] = ['hypothesis', 'upload', 'panels', 'configure'];
+    const isValidStep = savedStep && validSteps.includes(savedStep as Step);
+    
+    // Only restore if the mode matches and step is valid
+    if (isValidStep && savedMode === mode) {
+      return savedStep as Step;
+    }
+    
+    return isGuided ? "hypothesis" : "upload";
+  };
+
+  const [currentStep, setCurrentStepState] = useState<Step>(getInitialStep());
   const [hypothesis, setHypothesis] = useState("");
   const [selectedPanels, setSelectedPanels] = useState<string[]>([]);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
@@ -60,6 +77,13 @@ export default function NewAnalysis() {
     start: { enabled: false, windowSize: 45, stepSize: 3 },
     end: { enabled: false, windowSize: 45, stepSize: 3 },
   });
+
+  // Wrapper to persist step changes to sessionStorage
+  const setCurrentStep = (step: Step) => {
+    setCurrentStepState(step);
+    sessionStorage.setItem('newAnalysis_currentStep', step);
+    sessionStorage.setItem('newAnalysis_mode', mode);
+  };
   
   const { getRecommendations, loading: aiLoading } = usePanelRecommendations();
   const { panels: dynamicPanels, loading: panelsLoading } = usePanels();
@@ -146,6 +170,15 @@ export default function NewAnalysis() {
     }
   };
 
+  // Clear session storage if mode changes (runs only when mode changes, which is rare)
+  useEffect(() => {
+    const savedMode = sessionStorage.getItem('newAnalysis_mode');
+    if (savedMode && savedMode !== mode) {
+      sessionStorage.removeItem('newAnalysis_currentStep');
+      sessionStorage.removeItem('newAnalysis_mode');
+    }
+  }, [mode]);
+
   // Automatically fetch AI recommendations when entering panels step in guided mode
   // This triggers the AI agent call to recommend relevant feature panels
   useEffect(() => {
@@ -198,7 +231,12 @@ export default function NewAnalysis() {
 
     if (error) {
       toast({ variant: "destructive", title: "Failed to create analysis", description: error.message });
+      console.error("Database error creating analysis:", error);
     } else if (data) {
+      // Clear session storage since we're successfully navigating away
+      sessionStorage.removeItem('newAnalysis_currentStep');
+      sessionStorage.removeItem('newAnalysis_mode');
+      
       toast({ title: "Analysis created", description: "Starting computation..." });
       // Pass AI recommendations, sequences, and auto-start flag via state
       navigate(`/analysis/${data.id}`, { 
