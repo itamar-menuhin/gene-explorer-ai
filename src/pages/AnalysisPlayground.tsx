@@ -614,6 +614,7 @@ export default function AnalysisPlayground() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {/* Show "Rerun Calculation" when analysis is completed */}
             {status === 'completed' && (
               <Button variant="ocean" size="sm" onClick={handleStartComputation}>
                 <Play className="h-4 w-4 mr-2" />

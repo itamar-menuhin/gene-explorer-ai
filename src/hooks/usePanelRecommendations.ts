@@ -65,8 +65,15 @@ export function usePanelRecommendations() {
       });
 
       if (fnError) {
-        // Retry on network/timeout errors
-        if (retryCount < 2 && (fnError.message.includes('timeout') || fnError.message.includes('network') || fnError.message.includes('fetch'))) {
+        // Retry on network/timeout errors (including specific edge function error messages)
+        const isRetryableError = fnError.message.includes('timeout') || 
+                                  fnError.message.includes('network') || 
+                                  fnError.message.includes('fetch') ||
+                                  fnError.message.includes('Network error') ||
+                                  fnError.message.includes('Request timeout') ||
+                                  fnError.message.includes('took too long');
+        
+        if (retryCount < 2 && isRetryableError) {
           console.log(`Retrying recommendation (attempt ${retryCount + 1}/2)...`);
           await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Exponential backoff
           return getRecommendations(hypothesis, sequenceCount, minLength, maxLength, retryCount + 1);
