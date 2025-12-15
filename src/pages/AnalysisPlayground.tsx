@@ -481,6 +481,13 @@ export default function AnalysisPlayground() {
   // Use actual sequence count for progress tracking
   const actualSequenceCount = storedSequences.length || realAnalysisData?.sequence_count || 0;
   
+  // Compute unique sequence count from featureData (handles both global and windowed results)
+  const uniqueSequenceCount = useMemo(() => {
+    if (featureData.length === 0) return 0;
+    const uniqueIds = new Set(featureData.map(d => d.sequenceId));
+    return uniqueIds.size;
+  }, [featureData]);
+  
   const { state: progressState, startComputation, stopComputation, resetComputation } = 
     useComputationProgress(actualSequenceCount, selectedPanels);
 
@@ -711,7 +718,7 @@ export default function AnalysisPlayground() {
         {/* Stats Bar */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           {[
-            { label: "Sequences", value: featureData.length > 0 ? featureData.length.toString() : (storedSequences.length || realAnalysisData?.sequence_count || 0).toString() },
+            { label: "Sequences", value: uniqueSequenceCount > 0 ? uniqueSequenceCount.toString() : actualSequenceCount.toString() },
             { label: "Panels Computed", value: selectedPanels.length.toString() },
             { label: "Features Available", value: featureNames.length.toString() },
             { label: "Runtime", value: extractedResults?.metadata?.computeTimeMs 
