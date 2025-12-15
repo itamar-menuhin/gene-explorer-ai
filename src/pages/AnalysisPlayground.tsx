@@ -458,8 +458,11 @@ export default function AnalysisPlayground() {
     { title: 'Mfold web server for nucleic acid folding', authors: 'Zuker M.', year: 2003, journal: 'Nucleic Acids Res', doi: '10.1093/nar/gkg595' }
   ];
 
+  // Use actual sequence count for progress tracking
+  const actualSequenceCount = storedSequences.length || realAnalysisData?.sequence_count || 0;
+  
   const { state: progressState, startComputation, stopComputation, resetComputation } = 
-    useComputationProgress(248, selectedPanels);
+    useComputationProgress(actualSequenceCount, selectedPanels);
 
   // Load cached recommendations and sequences from navigation state (prioritize over database)
   useEffect(() => {

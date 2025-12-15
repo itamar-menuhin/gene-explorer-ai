@@ -133,6 +133,10 @@ serve(async (req) => {
     const systemPrompt = buildSystemPrompt(PANELS);
     const userPrompt = buildUserPrompt(hypothesis, PANELS, sequenceCount, minLength, maxLength);
 
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout
+    
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -172,7 +176,10 @@ serve(async (req) => {
         }],
         tool_choice: { type: 'function', function: { name: 'recommend_panels' } }
       }),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -217,8 +224,25 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in recommend-panels:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
-      status: 500,
+    
+    // Better error messages for common issues
+    let errorMessage = 'Unknown error';
+    let statusCode = 500;
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError' || error.message.includes('aborted')) {
+        errorMessage = 'Request timeout - AI service took too long to respond. Please try again.';
+        statusCode = 504;
+      } else if (error.message.includes('fetch')) {
+        errorMessage = 'Network error connecting to AI service. Please try again.';
+        statusCode = 503;
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

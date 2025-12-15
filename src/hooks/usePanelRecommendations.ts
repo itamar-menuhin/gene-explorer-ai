@@ -48,7 +48,8 @@ export function usePanelRecommendations() {
     hypothesis: string,
     sequenceCount?: number,
     minLength?: number,
-    maxLength?: number
+    maxLength?: number,
+    retryCount = 0
   ) => {
     if (!hypothesis.trim()) {
       setError('Please enter a hypothesis');
@@ -64,6 +65,12 @@ export function usePanelRecommendations() {
       });
 
       if (fnError) {
+        // Retry on network/timeout errors
+        if (retryCount < 2 && (fnError.message.includes('timeout') || fnError.message.includes('network') || fnError.message.includes('fetch'))) {
+          console.log(`Retrying recommendation (attempt ${retryCount + 1}/2)...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Exponential backoff
+          return getRecommendations(hypothesis, sequenceCount, minLength, maxLength, retryCount + 1);
+        }
         throw new Error(fnError.message);
       }
 
@@ -81,7 +88,15 @@ export function usePanelRecommendations() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to get recommendations';
       setError(message);
-      toast({ variant: 'destructive', title: 'Recommendation failed', description: message });
+      
+      // Only show toast on final failure (not during retries)
+      if (retryCount >= 2 || !message.includes('timeout')) {
+        toast({ 
+          variant: 'destructive', 
+          title: 'Recommendation failed', 
+          description: retryCount > 0 ? `${message} (after ${retryCount + 1} attempts)` : message 
+        });
+      }
       return [];
     } finally {
       setLoading(false);
