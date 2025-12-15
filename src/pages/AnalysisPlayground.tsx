@@ -262,6 +262,7 @@ export default function AnalysisPlayground() {
   }, [realAnalysisData?.selected_panels, cachedRecommendations]);
 
   // Get feature names from extracted results or fallback to panel-based names
+  // Note: This depends on selectedPanels defined above
   const featureNames = useMemo(() => {
     if (extractedResults?.results?.[0]?.features) {
       return Object.keys(extractedResults.results[0].features);
