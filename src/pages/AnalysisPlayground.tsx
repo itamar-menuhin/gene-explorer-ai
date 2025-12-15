@@ -346,12 +346,13 @@ export default function AnalysisPlayground() {
         if (error) {
           console.error('[fetchAnalysis] Error fetching analysis:', error);
         } else if (data) {
+          const sequencesArray = data.sequences as Array<{ id: string; sequence: string; name?: string }> | null;
           console.log('[fetchAnalysis] Fetched analysis data:', {
             id: data.id,
             name: data.name,
             selectedPanels: data.selected_panels,
             sequenceCount: data.sequence_count,
-            hasSequences: data.sequences ? data.sequences.length : 0
+            hasSequences: sequencesArray ? sequencesArray.length : 0
           });
           
           setRealAnalysisData(data);
@@ -361,9 +362,9 @@ export default function AnalysisPlayground() {
           setStatus((data?.status as 'draft' | 'computing' | 'completed') ?? 'draft');
           
           // Load sequences from database if not passed via navigation state
-          if (data?.sequences && Array.isArray(data.sequences) && data.sequences.length > 0) {
-            setStoredSequences(data.sequences);
-            console.log(`[fetchAnalysis] Loaded ${data.sequences.length} sequences from database`);
+          if (sequencesArray && sequencesArray.length > 0) {
+            setStoredSequences(sequencesArray);
+            console.log(`[fetchAnalysis] Loaded ${sequencesArray.length} sequences from database`);
           }
           
           // Load window config from database

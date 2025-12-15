@@ -474,19 +474,25 @@ function computeWindowedFeatures(
 
   let totalWindows = 0;
 
+  console.log(`Starting windowed feature computation for ${sequences.length} sequences`);
+
   for (const seq of sequences) {
     const sequence = seq.sequence.toUpperCase().replace(/U/g, 'T');
     const seqLength = sequence.length;
     
-    // CRITICAL FIX: Always compute global features first (matches Python backend behavior)
-    // This ensures visualizations and CSV exports have complete data
+    // CRITICAL: Always compute global features first for ALL sequences
+    // This ensures CSV export and visualizations have complete data
     const globalFeatures = extractFeatures(sequence, enabledPanels, referenceSet);
     results.push({
       sequenceId: seq.id,
       sequenceName: seq.name,
       features: globalFeatures,
-      // No windowStart/windowEnd indicates this is a global result
     });
+    
+    // Log first few sequences for debugging
+    if (results.length <= 3) {
+      console.log(`Added global features for sequence ${seq.id}, seqLength: ${seqLength}`);
+    }
     
     // Then compute windowed features
     // Process start windows

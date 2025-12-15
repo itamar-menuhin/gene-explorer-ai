@@ -40,13 +40,16 @@ export interface FeatureExtractionRequest {
 // Response types for feature results
 export interface GlobalFeatureResult {
   sequenceId: string;
+  sequenceName?: string;
   features: Record<string, number | string | null>;
 }
 
 export interface WindowedFeatureResult {
   sequenceId: string;
-  windowStart: number;
-  windowEnd: number;
+  sequenceName?: string;
+  windowStart?: number; // Optional - global results in windowed mode don't have this
+  windowEnd?: number;
+  windowType?: 'start' | 'end';
   features: Record<string, number | string | null>;
 }
 

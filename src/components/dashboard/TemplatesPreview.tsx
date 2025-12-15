@@ -31,9 +31,9 @@ export function TemplatesPreview() {
       try {
         const { data, error } = await supabase
           .from('templates')
-          .select('id, name, description, selected_panels, is_default, usage_count')
+          .select('id, name, description, selected_panels, is_public, created_at')
           .eq('user_id', user.id)
-          .order('usage_count', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(3);
 
         if (error) throw error;
@@ -44,8 +44,8 @@ export function TemplatesPreview() {
             name: t.name || 'Untitled Template',
             description: t.description || '',
             panelCount: Array.isArray(t.selected_panels) ? t.selected_panels.length : 0,
-            usageCount: t.usage_count || 0,
-            isDefault: t.is_default || false,
+            usageCount: 0,
+            isDefault: t.is_public || false,
           }));
           setTemplates(formattedTemplates);
         }
