@@ -241,8 +241,27 @@ export default function AnalysisPlayground() {
     }
   });
 
+  // Get selected panels from analysis data, or use cached recommendations
+  // NOTE: This must be defined before 'featureNames' to avoid TDZ error
+  const selectedPanels = useMemo(() => {
+    // First priority: use panels from the database
+    if (realAnalysisData?.selected_panels && realAnalysisData.selected_panels.length > 0) {
+      return realAnalysisData.selected_panels;
+    }
+    
+    // Second priority: use recommended panels from AI
+    if (cachedRecommendations.length > 0) {
+      const recommendedOrder = cachedRecommendations
+        .sort((a, b) => b.relevanceScore - a.relevanceScore)
+        .map(r => r.panelId);
+      return recommendedOrder;
+    }
+    
+    // Fallback: default panels
+    return ['sequence', 'chemical'];
+  }, [realAnalysisData?.selected_panels, cachedRecommendations]);
+
   // Get feature names from extracted results or fallback to panel-based names
-  // NOTE: This must be defined before 'features' useMemo to avoid TDZ error
   const featureNames = useMemo(() => {
     if (extractedResults?.results?.[0]?.features) {
       return Object.keys(extractedResults.results[0].features);
@@ -384,25 +403,6 @@ export default function AnalysisPlayground() {
     sequence: 'ATGC'.repeat(100),
     length: 400 + i * 50
   }));
-  
-  // Get selected panels from analysis data, or use cached recommendations
-  const selectedPanels = useMemo(() => {
-    // First priority: use panels from the database
-    if (realAnalysisData?.selected_panels && realAnalysisData.selected_panels.length > 0) {
-      return realAnalysisData.selected_panels;
-    }
-    
-    // Second priority: use recommended panels from AI
-    if (cachedRecommendations.length > 0) {
-      const recommendedOrder = cachedRecommendations
-        .sort((a, b) => b.relevanceScore - a.relevanceScore)
-        .map(r => r.panelId);
-      return recommendedOrder;
-    }
-    
-    // Fallback: default panels
-    return ['sequence', 'chemical'];
-  }, [realAnalysisData?.selected_panels, cachedRecommendations]);
   
   // Use real extracted data if available; do not fall back to mock data
   const featureData = useMemo(() => {
