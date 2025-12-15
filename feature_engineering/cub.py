@@ -195,6 +195,11 @@ class CUBFeaturesMixin(UniversalFeatureMixin):
             seq: nucleotide sequence (str)
         Returns:
             CPB value (float)
+        
+        Note: CPB requires reference sequences for meaningful comparison.
+        This implementation uses the sequence itself as reference, which provides
+        a self-consistency score but may not reflect biological codon pair bias.
+        For proper CPB analysis, pass a reference_set with appropriate reference sequences.
         """
         # CPB requires reference sequences - use the sequence itself as reference
         cpb = CodonPairBias([seq])
