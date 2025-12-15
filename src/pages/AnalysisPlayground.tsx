@@ -244,8 +244,15 @@ export default function AnalysisPlayground() {
   // Get selected panels from analysis data, or use cached recommendations
   // NOTE: This must be defined before 'featureNames' to avoid TDZ error
   const selectedPanels = useMemo(() => {
+    console.log('[selectedPanels] Computing selected panels:', {
+      realAnalysisDataPanels: realAnalysisData?.selected_panels,
+      cachedRecommendationsCount: cachedRecommendations.length,
+      cachedRecommendationsPanels: cachedRecommendations.map(r => r.panelId)
+    });
+    
     // First priority: use panels from the database
     if (realAnalysisData?.selected_panels && realAnalysisData.selected_panels.length > 0) {
+      console.log('[selectedPanels] Using panels from database:', realAnalysisData.selected_panels);
       return realAnalysisData.selected_panels;
     }
     
@@ -254,10 +261,12 @@ export default function AnalysisPlayground() {
       const recommendedOrder = cachedRecommendations
         .sort((a, b) => b.relevanceScore - a.relevanceScore)
         .map(r => r.panelId);
+      console.log('[selectedPanels] Using panels from AI recommendations:', recommendedOrder);
       return recommendedOrder;
     }
     
     // Fallback: default panels
+    console.log('[selectedPanels] Using fallback default panels');
     return ['sequence', 'chemical'];
   }, [realAnalysisData?.selected_panels, cachedRecommendations]);
 
@@ -325,6 +334,7 @@ export default function AnalysisPlayground() {
     const fetchAnalysis = async () => {
       if (!id) return;
       
+      console.log('[fetchAnalysis] Starting fetch for analysis ID:', id);
       setIsLoadingAnalysis(true);
       try {
         const { data, error } = await supabase
@@ -334,8 +344,16 @@ export default function AnalysisPlayground() {
           .single();
         
         if (error) {
-          console.error('Error fetching analysis:', error);
+          console.error('[fetchAnalysis] Error fetching analysis:', error);
         } else if (data) {
+          console.log('[fetchAnalysis] Fetched analysis data:', {
+            id: data.id,
+            name: data.name,
+            selectedPanels: data.selected_panels,
+            sequenceCount: data.sequence_count,
+            hasSequences: data.sequences ? data.sequences.length : 0
+          });
+          
           setRealAnalysisData(data);
           setAnalysisName(data?.name ?? 'Untitled Analysis');
           setHypothesis(data?.hypothesis ?? null);
@@ -345,7 +363,7 @@ export default function AnalysisPlayground() {
           // Load sequences from database if not passed via navigation state
           if (data?.sequences && Array.isArray(data.sequences) && data.sequences.length > 0) {
             setStoredSequences(data.sequences);
-            console.log(`Loaded ${data.sequences.length} sequences from database`);
+            console.log(`[fetchAnalysis] Loaded ${data.sequences.length} sequences from database`);
           }
           
           // Load window config from database
@@ -474,13 +492,22 @@ export default function AnalysisPlayground() {
       autoStartComputation?: boolean;
     } | null;
     
+    console.log('[navigationState] Loading from navigation state:', {
+      hasRecommendations: !!state?.aiRecommendations,
+      recommendationsCount: state?.aiRecommendations?.length || 0,
+      hasSequences: !!state?.sequences,
+      sequencesCount: state?.sequences?.length || 0,
+      autoStart: state?.autoStartComputation
+    });
+    
     if (state?.aiRecommendations) {
+      console.log('[navigationState] Setting cached AI recommendations:', state.aiRecommendations.map(r => ({ panelId: r.panelId, score: r.relevanceScore })));
       setCachedRecommendations(state.aiRecommendations);
     }
     // Override sequences if passed via navigation state (takes priority)
     if (state?.sequences && state.sequences.length > 0) {
       setStoredSequences(state.sequences);
-      console.log(`Loaded ${state.sequences.length} sequences from navigation state`);
+      console.log(`[navigationState] Loaded ${state.sequences.length} sequences from navigation state`);
     }
   }, [location.state]);
   
@@ -490,20 +517,42 @@ export default function AnalysisPlayground() {
       autoStartComputation?: boolean;
     } | null;
     
+    console.log('[autoStart] Effect triggered:', {
+      autoStartRequested: state?.autoStartComputation,
+      alreadyTriggered: autoStartTriggeredRef.current,
+      sequencesCount: storedSequences.length,
+      panelsCount: selectedPanels.length,
+      panels: selectedPanels,
+      analysisId: id,
+      realAnalysisDataLoaded: !!realAnalysisData,
+      realAnalysisDataPanels: realAnalysisData?.selected_panels
+    });
+    
     // Auto-start computation if requested from NewAnalysis and not already triggered
+    // CRITICAL: Only trigger once ALL conditions are met including data from database
     if (state?.autoStartComputation && 
         !autoStartTriggeredRef.current && 
         storedSequences.length > 0 && 
         selectedPanels.length > 0 && 
-        id) {
+        id &&
+        realAnalysisData !== null) { // Wait for database fetch to complete
+      
+      console.log('[autoStart] CONDITIONS MET - Auto-starting computation with panels:', selectedPanels);
       autoStartTriggeredRef.current = true;
-      console.log('Auto-starting computation as requested from analysis creation');
+      
       // Small delay to ensure component is fully mounted
       setTimeout(() => {
         handleStartComputation();
       }, 500);
+    } else if (state?.autoStartComputation && !autoStartTriggeredRef.current) {
+      console.log('[autoStart] CONDITIONS NOT MET - Waiting for:', {
+        needsSequences: storedSequences.length === 0,
+        needsPanels: selectedPanels.length === 0,
+        needsId: !id,
+        needsRealAnalysisData: realAnalysisData === null
+      });
     }
-  }, [storedSequences, selectedPanels, id, location.state]);
+  }, [storedSequences, selectedPanels, id, location.state, realAnalysisData]);
 
   const handleStartComputation = async () => {
     if (!id) {
@@ -637,7 +686,7 @@ export default function AnalysisPlayground() {
               analysisName={analysisName.replace(/\s+/g, '_')}
               citations={mockCitations}
             >
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" disabled={featureData.length === 0}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>

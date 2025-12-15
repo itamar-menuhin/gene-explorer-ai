@@ -46,12 +46,36 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   const [exporting, setExporting] = useState(false);
 
   const handleExport = () => {
+    // Validate that we have data to export
+    // Note: This check is kept even though the button is disabled, as defense-in-depth
+    // in case the dialog is opened programmatically or state changes during render
+    if (exportType === 'features' && featureData.length === 0) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'No data to export', 
+        description: 'Please run the computation first to generate feature data.' 
+      });
+      return;
+    }
+    
     setExporting(true);
     
     try {
       if (exportType === 'features') {
         const options: ExportOptions = { includeMetadata, includeAnnotations, delimiter };
         const csv = generateCSV(featureData, featureNames, options);
+        
+        // Additional check for empty CSV content
+        if (!csv || csv.trim().length === 0) {
+          toast({ 
+            variant: 'destructive', 
+            title: 'Export failed', 
+            description: 'Unable to generate CSV. The data may be incomplete or invalid.' 
+          });
+          setExporting(false);
+          return;
+        }
+        
         const ext = delimiter === '\t' ? 'tsv' : 'csv';
         const filename = `${analysisName.replace(/\s+/g, '_')}_features.${ext}`;
         downloadCSV(csv, filename);
@@ -97,13 +121,15 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         <div className="space-y-6 py-4">
           <RadioGroup value={exportType} onValueChange={(v) => setExportType(v as 'features' | 'citations')}>
             <div className="flex items-center space-x-3 p-3 rounded-lg border border-border/50 hover:bg-muted/30 cursor-pointer">
-              <RadioGroupItem value="features" id="features" />
+              <RadioGroupItem value="features" id="features" disabled={featureData.length === 0} />
               <Label htmlFor="features" className="flex items-center gap-2 cursor-pointer flex-1">
                 <FileSpreadsheet className="h-5 w-5 text-primary" />
                 <div>
                   <p className="font-medium">Feature Data</p>
                   <p className="text-sm text-muted-foreground">
-                    {featureData.length} sequences × {featureNames.length} features
+                    {featureData.length > 0 
+                      ? `${featureData.length} sequences × ${featureNames.length} features`
+                      : 'No data available - run computation first'}
                   </p>
                 </div>
               </Label>
@@ -154,7 +180,10 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleExport} disabled={exporting}>
+          <Button 
+            onClick={handleExport} 
+            disabled={exporting || (exportType === 'features' && featureData.length === 0)}
+          >
             {exporting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (

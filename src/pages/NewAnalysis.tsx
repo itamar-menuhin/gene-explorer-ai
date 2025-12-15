@@ -209,7 +209,19 @@ export default function NewAnalysis() {
       return;
     }
 
+    if (selectedPanels.length === 0) {
+      toast({ variant: "destructive", title: "No panels selected", description: "Please go back and select at least one feature panel" });
+      return;
+    }
+
     setIsSubmitting(true);
+    
+    console.log('[handleRunAnalysis] Creating analysis with:', {
+      selectedPanels,
+      sequenceCount: parseResult.sequences.length,
+      mode: isGuided ? 'guided' : 'manual',
+      hypothesis: hypothesis ? hypothesis.slice(0, 50) + '...' : 'none'
+    });
     
     // Prepare sequences for storage
     const sequencesData = parseResult.sequences.map(seq => ({
@@ -241,8 +253,14 @@ export default function NewAnalysis() {
 
     if (error) {
       toast({ variant: "destructive", title: "Failed to create analysis", description: error.message });
-      console.error("Database error creating analysis:", error);
+      console.error("[handleRunAnalysis] Database error creating analysis:", error);
     } else if (data) {
+      console.log('[handleRunAnalysis] Analysis created successfully:', {
+        id: data.id,
+        selectedPanels: data.selected_panels,
+        sequenceCount: data.sequence_count
+      });
+      
       toast({ title: "Analysis created", description: "Starting computation..." });
       // Pass AI recommendations, sequences, and auto-start flag via state
       navigate(`/analysis/${data.id}`, { 
@@ -753,7 +771,7 @@ export default function NewAnalysis() {
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back
                 </Button>
-                <Button variant="scientific" size="lg" onClick={handleRunAnalysis} disabled={isSubmitting}>
+                <Button variant="scientific" size="lg" onClick={handleRunAnalysis} disabled={isSubmitting || selectedPanels.length === 0}>
                   <Zap className="h-4 w-4 mr-2" />
                   {isSubmitting ? "Creating..." : "Run Analysis"}
                 </Button>
