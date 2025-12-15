@@ -211,6 +211,13 @@ export default function NewAnalysis() {
 
     setIsSubmitting(true);
     
+    console.log('[handleRunAnalysis] Creating analysis with:', {
+      selectedPanels,
+      sequenceCount: parseResult.sequences.length,
+      mode: isGuided ? 'guided' : 'manual',
+      hypothesis: hypothesis ? hypothesis.slice(0, 50) + '...' : 'none'
+    });
+    
     // Prepare sequences for storage
     const sequencesData = parseResult.sequences.map(seq => ({
       id: seq.id,
@@ -241,8 +248,14 @@ export default function NewAnalysis() {
 
     if (error) {
       toast({ variant: "destructive", title: "Failed to create analysis", description: error.message });
-      console.error("Database error creating analysis:", error);
+      console.error("[handleRunAnalysis] Database error creating analysis:", error);
     } else if (data) {
+      console.log('[handleRunAnalysis] Analysis created successfully:', {
+        id: data.id,
+        selectedPanels: data.selected_panels,
+        sequenceCount: data.sequence_count
+      });
+      
       toast({ title: "Analysis created", description: "Starting computation..." });
       // Pass AI recommendations, sequences, and auto-start flag via state
       navigate(`/analysis/${data.id}`, { 
