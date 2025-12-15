@@ -448,9 +448,9 @@ function computeWindowedFeatures(
   const results: Array<{
     sequenceId: string;
     sequenceName?: string;
-    windowStart: number;
-    windowEnd: number;
-    windowType: 'start' | 'end';
+    windowStart?: number;
+    windowEnd?: number;
+    windowType?: 'start' | 'end';
     features: Record<string, number | string | null>;
   }> = [];
 
@@ -460,6 +460,17 @@ function computeWindowedFeatures(
     const sequence = seq.sequence.toUpperCase().replace(/U/g, 'T');
     const seqLength = sequence.length;
     
+    // CRITICAL FIX: Always compute global features first (matches Python backend behavior)
+    // This ensures visualizations and CSV exports have complete data
+    const globalFeatures = extractFeatures(sequence, enabledPanels, referenceSet);
+    results.push({
+      sequenceId: seq.id,
+      sequenceName: seq.name,
+      features: globalFeatures,
+      // No windowStart/windowEnd indicates this is a global result
+    });
+    
+    // Then compute windowed features
     // Process start windows
     if (windowConfig.start?.enabled) {
       const { windowSize, stepSize, numWindows, startIndex = 0, endIndex } = windowConfig.start;

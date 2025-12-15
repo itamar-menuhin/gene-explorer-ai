@@ -20,7 +20,7 @@ import { ExportDialog } from "@/components/analysis/ExportDialog";
 import { ShareAnalysisDialog } from "@/components/analysis/ShareAnalysisDialog";
 import { ComputationProgress } from "@/components/analysis/ComputationProgress";
 import { useComputationProgress } from "@/hooks/useComputationProgress";
-import { generateMockFeatureData, getAllFeatureNames, FeatureData } from "@/lib/csvExport";
+import { generateMockFeatureData, getAllFeatureNames, FeatureData, getUniqueSequenceCount } from "@/lib/csvExport";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useFeatureExtraction } from "@/hooks/useFeatureExtraction";
@@ -481,6 +481,9 @@ export default function AnalysisPlayground() {
   // Use actual sequence count for progress tracking
   const actualSequenceCount = storedSequences.length || realAnalysisData?.sequence_count || 0;
   
+  // Compute unique sequence count from featureData (handles both global and windowed results)
+  const uniqueSequenceCount = useMemo(() => getUniqueSequenceCount(featureData), [featureData]);
+  
   const { state: progressState, startComputation, stopComputation, resetComputation } = 
     useComputationProgress(actualSequenceCount, selectedPanels);
 
@@ -711,7 +714,7 @@ export default function AnalysisPlayground() {
         {/* Stats Bar */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           {[
-            { label: "Sequences", value: featureData.length > 0 ? featureData.length.toString() : (storedSequences.length || realAnalysisData?.sequence_count || 0).toString() },
+            { label: "Sequences", value: uniqueSequenceCount > 0 ? uniqueSequenceCount.toString() : actualSequenceCount.toString() },
             { label: "Panels Computed", value: selectedPanels.length.toString() },
             { label: "Features Available", value: featureNames.length.toString() },
             { label: "Runtime", value: extractedResults?.metadata?.computeTimeMs 

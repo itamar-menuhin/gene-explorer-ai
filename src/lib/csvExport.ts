@@ -17,6 +17,19 @@ export interface ExportOptions {
 }
 
 /**
+ * Get the unique sequence count from feature data.
+ * Handles both global and windowed results correctly by counting unique sequence IDs.
+ * 
+ * @param featureData - Array of feature data (may include both global and windowed results)
+ * @returns Number of unique sequences
+ */
+export function getUniqueSequenceCount(featureData: FeatureData[]): number {
+  if (featureData.length === 0) return 0;
+  const uniqueIds = new Set(featureData.map(d => d.sequenceId));
+  return uniqueIds.size;
+}
+
+/**
  * Generate CSV for windowed data with global and per-window values
  * For each sequence, includes one row with: global value + window_1 + window_2 + ... + window_N
  */
