@@ -264,6 +264,11 @@ async def extract_features(request: FeatureRequest):
     for seq in request.sequences:
         try:
             if window_config.enabled:
+                # Always compute global features first
+                global_result = extract_global_features(seq.sequence, seq.id, request.panels)
+                results.append(global_result)
+                
+                # Then compute windowed features
                 window_results = extract_window_features(
                     seq.sequence,
                     seq.id,

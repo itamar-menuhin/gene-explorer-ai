@@ -6,12 +6,127 @@ export interface FeatureData {
   sequenceLength: number;
   features: Record<string, number | null>;
   annotations?: Record<string, string>;
+  windowStart?: number;
+  windowEnd?: number;
 }
 
 export interface ExportOptions {
   includeMetadata: boolean;
   includeAnnotations: boolean;
   delimiter: ',' | '\t';
+}
+
+/**
+ * Generate CSV for windowed data with global and per-window values
+ * For each sequence, includes one row with: global value + window_1 + window_2 + ... + window_N
+ */
+export function generateWindowedCSV(
+  data: FeatureData[],
+  featureNames: string[],
+  options: ExportOptions = { includeMetadata: true, includeAnnotations: true, delimiter: ',' }
+): string {
+  const { includeMetadata, includeAnnotations, delimiter } = options;
+  
+  if (data.length === 0) return '';
+
+  // Group data by sequence ID
+  const sequenceMap = new Map<string, { 
+    global: FeatureData | null;
+    windows: FeatureData[];
+  }>();
+
+  // Separate global and windowed results
+  data.forEach(item => {
+    if (!sequenceMap.has(item.sequenceId)) {
+      sequenceMap.set(item.sequenceId, { global: null, windows: [] });
+    }
+    const seqData = sequenceMap.get(item.sequenceId)!;
+    
+    if (item.windowStart !== undefined && item.windowEnd !== undefined) {
+      // This is a windowed result
+      seqData.windows.push(item);
+    } else {
+      // This is a global result
+      seqData.global = item;
+    }
+  });
+
+  // Sort windows by start position for each sequence
+  sequenceMap.forEach(seqData => {
+    seqData.windows.sort((a, b) => (a.windowStart || 0) - (b.windowStart || 0));
+  });
+
+  // Build headers
+  const headers: string[] = ['sequence_id', 'sequence_name'];
+  
+  if (includeMetadata) {
+    headers.push('sequence_length');
+  }
+  
+  // Add annotation columns if present
+  const firstItem = data[0];
+  const annotationKeys = includeAnnotations && firstItem.annotations 
+    ? Object.keys(firstItem.annotations) 
+    : [];
+  headers.push(...annotationKeys);
+  
+  // Add feature columns: global + each window
+  const maxWindows = Math.max(...Array.from(sequenceMap.values()).map(s => s.windows.length));
+  featureNames.forEach(feature => {
+    headers.push(`${feature}_global`);
+    for (let i = 0; i < maxWindows; i++) {
+      headers.push(`${feature}_window_${i + 1}`);
+    }
+  });
+
+  // Build data rows
+  const rows: string[] = [];
+  sequenceMap.forEach((seqData, seqId) => {
+    const row: string[] = [
+      escapeCSV(seqId, delimiter),
+      escapeCSV(seqData.global?.sequenceName || seqId, delimiter)
+    ];
+    
+    if (includeMetadata) {
+      row.push(String(seqData.global?.sequenceLength || 0));
+    }
+    
+    // Add annotation values
+    annotationKeys.forEach(key => {
+      row.push(escapeCSV(seqData.global?.annotations?.[key] || '', delimiter));
+    });
+    
+    // Add feature values: global + windows
+    featureNames.forEach(feature => {
+      // Global value
+      const globalValue = seqData.global?.features[feature];
+      if (globalValue !== null && globalValue !== undefined) {
+        const numValue = typeof globalValue === 'number' ? Math.round(globalValue * 1000) / 1000 : globalValue;
+        row.push(String(numValue));
+      } else {
+        row.push('');
+      }
+      
+      // Window values
+      for (let i = 0; i < maxWindows; i++) {
+        if (i < seqData.windows.length) {
+          const windowValue = seqData.windows[i].features[feature];
+          if (windowValue !== null && windowValue !== undefined) {
+            const numValue = typeof windowValue === 'number' ? Math.round(windowValue * 1000) / 1000 : windowValue;
+            row.push(String(numValue));
+          } else {
+            row.push('');
+          }
+        } else {
+          row.push('');
+        }
+      }
+    });
+    
+    rows.push(row.join(delimiter));
+  });
+
+  return [headers.join(delimiter), ...rows].join('\n');
 }
 
 export function generateCSV(
@@ -23,7 +138,13 @@ export function generateCSV(
   
   if (data.length === 0) return '';
 
-  // Build header row
+  // Check if this is windowed data
+  const hasWindows = data.some(item => item.windowStart !== undefined);
+  if (hasWindows) {
+    return generateWindowedCSV(data, featureNames, options);
+  }
+
+  // Build header row for global data
   const headers: string[] = ['sequence_id', 'sequence_name'];
   
   if (includeMetadata) {
