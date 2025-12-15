@@ -157,13 +157,18 @@ class TestExtractFeaturesWindowed:
         assert data["metadata"]["windowSize"] == 20
         assert data["metadata"]["stepSize"] == 10
         
-        # Should have multiple windows
+        # Should have multiple results (1 global + windowed)
         assert len(data["results"]) > 1
         
-        # Check window boundaries
+        # First result should be global (windowStart is None)
         first_result = data["results"][0]
-        assert first_result["windowStart"] == 0
-        assert first_result["windowEnd"] == 20
+        assert first_result["windowStart"] is None
+        assert first_result["windowEnd"] is None
+        
+        # Check window boundaries for windowed results
+        second_result = data["results"][1]
+        assert second_result["windowStart"] == 0
+        assert second_result["windowEnd"] == 20
     
     def test_windowed_extraction_with_step(self):
         """Test that step size is correctly applied."""

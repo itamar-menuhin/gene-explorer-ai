@@ -110,7 +110,11 @@ class TestE2EWindowedAnalysis:
         assert data["metadata"]["totalWindows"] > 0
         
         # Verify window structure
-        for result in data["results"]:
+        # First result should be global (windowStart is None)
+        assert data["results"][0]["windowStart"] is None
+        
+        # Remaining results should be windowed
+        for result in data["results"][1:]:
             assert result["windowStart"] is not None
             assert result["windowEnd"] is not None
             assert result["windowEnd"] - result["windowStart"] == 50
