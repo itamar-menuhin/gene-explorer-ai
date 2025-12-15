@@ -241,6 +241,15 @@ export default function AnalysisPlayground() {
     }
   });
 
+  // Get feature names from extracted results or fallback to panel-based names
+  // NOTE: This must be defined before 'features' useMemo to avoid TDZ error
+  const featureNames = useMemo(() => {
+    if (extractedResults?.results?.[0]?.features) {
+      return Object.keys(extractedResults.results[0].features);
+    }
+    return getAllFeatureNames(selectedPanels);
+  }, [extractedResults, selectedPanels]);
+
   // Generate features list from extracted results or use fallback
   const features = useMemo(() => {
     if (featureNames.length > 0) {
@@ -423,14 +432,6 @@ export default function AnalysisPlayground() {
     // No real results yet
     return [];
   }, [extractedResults, realAnalysisData, storedSequences]);
-  
-  // Get feature names from extracted results or fallback to panel-based names
-  const featureNames = useMemo(() => {
-    if (extractedResults?.results?.[0]?.features) {
-      return Object.keys(extractedResults.results[0].features);
-    }
-    return getAllFeatureNames(selectedPanels);
-  }, [extractedResults, selectedPanels]);
   
   // Compute real profile data from windowed results
   const profileData = useMemo(() => {
