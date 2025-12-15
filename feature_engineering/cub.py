@@ -14,9 +14,22 @@ from codonbias.scores import (
     FrequencyOfOptimalCodons,
     RelativeSynonymousCodonUsage,
     CodonPairBias,
-    DirectionalCodonBiasScore
 )
-from codonbias.pairwise import CodonUsageFrequencySimilarity
+# DirectionalCodonBiasScore is not available in codon-bias 0.3.5
+try:
+    from codonbias.scores import DirectionalCodonBiasScore
+    HAS_DCBS = True
+except ImportError:
+    HAS_DCBS = False
+
+# CodonUsageFrequencySimilarity may be called CodonUsageFrequency in some versions
+try:
+    from codonbias.pairwise import CodonUsageFrequencySimilarity
+except ImportError:
+    try:
+        from codonbias.pairwise import CodonUsageFrequency as CodonUsageFrequencySimilarity
+    except ImportError:
+        CodonUsageFrequencySimilarity = None
 from .universal_feature_mixin import UniversalFeatureMixin
 from .reference_loader import ReferenceSequenceSet
 
@@ -72,7 +85,7 @@ class CUBFeaturesMixin(UniversalFeatureMixin):
         else:
             weights = ReferenceSequenceSet(None, {}).generate_weights("tai", trna_path=trna_path)
         tai = TrnaAdaptationIndex(weights)
-        return tai.score(seq)
+        return tai.get_score(seq)
     
     def _get_rca_weights(self, seq_dict, aa2nt):
         """
@@ -118,7 +131,7 @@ class CUBFeaturesMixin(UniversalFeatureMixin):
         else:
             weights = ReferenceSequenceSet(None, {}).generate_weights("cai")
         cai = CodonAdaptationIndex(weights)
-        return cai.score(seq)
+        return cai.get_score(seq)
 
     def calc_ENC(self, seq):
         """
@@ -126,7 +139,7 @@ class CUBFeaturesMixin(UniversalFeatureMixin):
         Returns: ENC value (float)
         """
         enc = EffectiveNumberOfCodons()
-        return enc.score(seq)
+        return enc.get_score(seq)
 
     def calc_RCBS(self, seq):
         """
@@ -134,7 +147,7 @@ class CUBFeaturesMixin(UniversalFeatureMixin):
         Returns: RCBS value (float)
         """
         rcbs = RelativeCodonBiasScore()
-        return rcbs.score(seq)
+        return rcbs.get_score(seq)
 
     def calc_FOP(self, seq, reference_set=None, reference_seqs=None):
         """
@@ -160,7 +173,7 @@ class CUBFeaturesMixin(UniversalFeatureMixin):
             from .reference_loader import ReferenceSequenceSet
             weights = ReferenceSequenceSet(None, {}).generate_weights("cai")
         fop = FrequencyOfOptimalCodons(weights)
-        return fop.score(seq)
+        return fop.get_score(seq)
 
     def calc_RSCU(self, seq):
         """
@@ -168,7 +181,7 @@ class CUBFeaturesMixin(UniversalFeatureMixin):
         Returns a scalar summary (mean) if the result is a dictionary, otherwise returns the scalar as-is.
         """
         rscu = RelativeSynonymousCodonUsage()
-        result = rscu.score(seq)
+        result = rscu.get_score(seq)
         # If the result is a dictionary (codon -> RSCU), return the mean as a scalar summary
         if isinstance(result, dict):
             return float(np.mean(list(result.values()))) if result else float('nan')
@@ -183,8 +196,9 @@ class CUBFeaturesMixin(UniversalFeatureMixin):
         Returns:
             CPB value (float)
         """
-        cpb = CodonPairBias()
-        return cpb.score(seq)
+        # CPB requires reference sequences - use the sequence itself as reference
+        cpb = CodonPairBias([seq])
+        return cpb.get_score(seq)
 
     def calc_DCBS(self, seq):
         """
@@ -194,8 +208,10 @@ class CUBFeaturesMixin(UniversalFeatureMixin):
         Returns:
             DCBS value (float)
         """
+        if not HAS_DCBS:
+            return float('nan')  # Return NaN if DCBS is not available
         dcbs = DirectionalCodonBiasScore()
-        return dcbs.score(seq)
+        return dcbs.get_score(seq)
     
     def _extract_features_single(self, sequence, features_json=None, reference_set=None, **kwargs):
         """
@@ -249,6 +265,8 @@ class CUBFeaturesMixin(UniversalFeatureMixin):
         Returns:
             CUFS value (float)
         """
+        if CodonUsageFrequencySimilarity is None:
+            return float('nan')
         cufs = CodonUsageFrequencySimilarity()
-        return cufs.score(seq1, seq2)
+        return cufs.get_score(seq1, seq2)
 
