@@ -20,7 +20,7 @@ import { ExportDialog } from "@/components/analysis/ExportDialog";
 import { ShareAnalysisDialog } from "@/components/analysis/ShareAnalysisDialog";
 import { ComputationProgress } from "@/components/analysis/ComputationProgress";
 import { useComputationProgress } from "@/hooks/useComputationProgress";
-import { generateMockFeatureData, getAllFeatureNames, FeatureData } from "@/lib/csvExport";
+import { generateMockFeatureData, getAllFeatureNames, FeatureData, getUniqueSequenceCount } from "@/lib/csvExport";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useFeatureExtraction } from "@/hooks/useFeatureExtraction";
@@ -482,11 +482,7 @@ export default function AnalysisPlayground() {
   const actualSequenceCount = storedSequences.length || realAnalysisData?.sequence_count || 0;
   
   // Compute unique sequence count from featureData (handles both global and windowed results)
-  const uniqueSequenceCount = useMemo(() => {
-    if (featureData.length === 0) return 0;
-    const uniqueIds = new Set(featureData.map(d => d.sequenceId));
-    return uniqueIds.size;
-  }, [featureData]);
+  const uniqueSequenceCount = useMemo(() => getUniqueSequenceCount(featureData), [featureData]);
   
   const { state: progressState, startComputation, stopComputation, resetComputation } = 
     useComputationProgress(actualSequenceCount, selectedPanels);

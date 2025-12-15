@@ -19,7 +19,8 @@ import {
   downloadCSV, 
   generateCitationsExport,
   FeatureData,
-  ExportOptions 
+  ExportOptions,
+  getUniqueSequenceCount
 } from '@/lib/csvExport';
 
 interface ExportDialogProps {
@@ -46,11 +47,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   const [exporting, setExporting] = useState(false);
   
   // Compute unique sequence count (handles both global and windowed results)
-  const uniqueSequenceCount = React.useMemo(() => {
-    if (featureData.length === 0) return 0;
-    const uniqueIds = new Set(featureData.map(d => d.sequenceId));
-    return uniqueIds.size;
-  }, [featureData]);
+  const uniqueSequenceCount = React.useMemo(() => getUniqueSequenceCount(featureData), [featureData]);
 
   const handleExport = () => {
     // Validate that we have data to export
