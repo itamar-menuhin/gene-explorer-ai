@@ -22,29 +22,37 @@ export function StartWindowConfigPanel({
 }: StartWindowConfigPanelProps) {
   const handleToggle = (enabled: boolean) => {
     const numWindows = enabled 
-      ? calculateNumWindows(enabled, config.windowSize, config.stepSize, config.startIndex, config.endIndex, maxSequenceLength)
+      ? calculateNumWindows(config.windowSize, config.stepSize, config.startIndex, config.endIndex, maxSequenceLength)
       : 0;
     onChange({ ...config, enabled, numWindows });
   };
 
   const handleWindowSizeChange = (value: number) => {
     const newStepSize = Math.min(config.stepSize, value);
-    const numWindows = calculateNumWindows(config.enabled, value, newStepSize, config.startIndex, config.endIndex, maxSequenceLength);
+    const numWindows = config.enabled
+      ? calculateNumWindows(value, newStepSize, config.startIndex, config.endIndex, maxSequenceLength)
+      : 0;
     onChange({ ...config, windowSize: value, stepSize: newStepSize, numWindows });
   };
 
   const handleStepSizeChange = (value: number) => {
-    const numWindows = calculateNumWindows(config.enabled, config.windowSize, value, config.startIndex, config.endIndex, maxSequenceLength);
+    const numWindows = config.enabled
+      ? calculateNumWindows(config.windowSize, value, config.startIndex, config.endIndex, maxSequenceLength)
+      : 0;
     onChange({ ...config, stepSize: value, numWindows });
   };
 
   const handleStartIndexChange = (value: number) => {
-    const numWindows = calculateNumWindows(config.enabled, config.windowSize, config.stepSize, value || undefined, config.endIndex, maxSequenceLength);
+    const numWindows = config.enabled
+      ? calculateNumWindows(config.windowSize, config.stepSize, value || undefined, config.endIndex, maxSequenceLength)
+      : 0;
     onChange({ ...config, startIndex: value || undefined, numWindows });
   };
 
   const handleEndIndexChange = (value: number) => {
-    const numWindows = calculateNumWindows(config.enabled, config.windowSize, config.stepSize, config.startIndex, value || undefined, maxSequenceLength);
+    const numWindows = config.enabled
+      ? calculateNumWindows(config.windowSize, config.stepSize, config.startIndex, value || undefined, maxSequenceLength)
+      : 0;
     onChange({ ...config, endIndex: value || undefined, numWindows });
   };
 
