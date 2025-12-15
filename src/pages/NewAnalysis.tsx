@@ -75,12 +75,22 @@ export default function NewAnalysis() {
       'motif': 500,
     };
     
+    // Estimate cost based on panel characteristics
+    const estimateCost = (panelId: string, features: string[]): "low" | "medium" | "high" => {
+      // High-cost panels (structure, motif analysis)
+      if (panelId === 'structure' || panelId === 'motif') return 'high';
+      // Medium-cost panels (disorder prediction)
+      if (panelId === 'disorder') return 'medium';
+      // Low-cost panels (sequence, chemical, codon usage)
+      return 'low';
+    };
+    
     return dynamicPanels.map(panel => ({
       id: panel.id,
       name: panel.name,
       description: panel.description,
       citations: citationMap[panel.id] || 500,
-      cost: 'low' as const,
+      cost: estimateCost(panel.id, panel.features),
       features: panel.features,
     }));
   }, [dynamicPanels]);

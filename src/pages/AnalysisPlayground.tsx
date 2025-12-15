@@ -472,6 +472,7 @@ export default function AnalysisPlayground() {
       await supabase.from('analyses')
         .update({ 
           status: 'draft',
+          computed_at: null,
           selected_panels: selectedPanels 
         })
         .eq('id', id);

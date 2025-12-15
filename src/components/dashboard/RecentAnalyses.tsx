@@ -53,7 +53,8 @@ export function RecentAnalyses() {
             hypothesis: a.hypothesis || undefined,
             sequenceCount: a.sequence_count || 0,
             panelsComputed: Array.isArray(a.selected_panels) ? a.selected_panels.length : 0,
-            status: (a.status as "completed" | "computing" | "draft") || 'draft',
+            // Normalize status: map 'in_progress' to 'computing' for consistency
+            status: (a.status === 'in_progress' ? 'computing' : a.status as "completed" | "computing" | "draft") || 'draft',
             createdAt: formatDistanceToNow(new Date(a.created_at), { addSuffix: true }),
           }));
           setAnalyses(formattedAnalyses);
