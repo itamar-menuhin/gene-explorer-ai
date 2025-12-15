@@ -229,7 +229,7 @@ export default function AnalysisPlayground() {
     return ['sequence', 'chemical'];
   }, [realAnalysisData?.selected_panels, cachedRecommendations]);
   
-  // Use real extracted data if available, otherwise fall back to mock data
+  // Use real extracted data if available; do not fall back to mock data
   const featureData = useMemo(() => {
     // If we have extracted results from edge function, use them
     if (extractedResults?.results) {
@@ -251,10 +251,9 @@ export default function AnalysisPlayground() {
       return realAnalysisData.results;
     }
     
-    // Otherwise, use mock data if computation was triggered
-    if (computationId === null) return [];
-    return generateMockFeatureData(mockSequences, selectedPanels);
-  }, [extractedResults, realAnalysisData, computationId, selectedPanels, mockSequences, storedSequences]);
+    // No real results yet
+    return [];
+  }, [extractedResults, realAnalysisData, storedSequences]);
   
   // Get feature names from extracted results or fallback to panel-based names
   const featureNames = useMemo(() => {
