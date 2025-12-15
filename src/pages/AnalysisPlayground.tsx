@@ -453,17 +453,7 @@ export default function AnalysisPlayground() {
     return [];
   }, [extractedResults, realAnalysisData, storedSequences]);
   
-  // Compute real profile data from windowed results
-  const profileData = useMemo(() => {
-    if (!extractedResults?.results || extractedResults.mode !== 'windowed') {
-      return [];
-    }
-    return computeProfileData(
-      extractedResults.results,
-      selectedFeature,
-      selectedSequence === 'all' ? null : selectedSequence
-    );
-  }, [extractedResults, selectedFeature, selectedSequence]);
+  // Profile data computation moved below distribution data for proper dependency ordering
 
   // Compute real distribution data from global results
   const distributionData = useMemo(() => {
@@ -472,6 +462,45 @@ export default function AnalysisPlayground() {
     }
     return computeDistributionData(extractedResults.results, selectedFeature);
   }, [extractedResults, selectedFeature]);
+
+  // Get the selected sequence's feature value for highlighting in distribution
+  const selectedSequenceValue = useMemo(() => {
+    if (selectedSequence === 'all' || !extractedResults?.results) {
+      return null;
+    }
+    
+    // Find the global result (no windowStart) for the selected sequence
+    const seqResult = extractedResults.results.find(
+      (r: any) => r.sequenceId === selectedSequence && r.windowStart === undefined
+    );
+    
+    if (!seqResult?.features?.[selectedFeature]) {
+      return null;
+    }
+    
+    return seqResult.features[selectedFeature] as number;
+  }, [selectedSequence, selectedFeature, extractedResults]);
+
+  // Compute profile data for selected sequence AND all-sequence quantiles for comparison
+  const { profileData, allSequenceProfileData } = useMemo(() => {
+    if (!extractedResults?.results || extractedResults.mode !== 'windowed') {
+      return { profileData: [], allSequenceProfileData: [] };
+    }
+    
+    // Always compute all-sequence quantile data for the background
+    const allSeqData = computeProfileData(extractedResults.results, selectedFeature, null);
+    
+    // If a specific sequence is selected, also compute its individual profile
+    let selectedSeqData: any[] = [];
+    if (selectedSequence !== 'all') {
+      selectedSeqData = computeProfileData(extractedResults.results, selectedFeature, selectedSequence);
+    }
+    
+    return {
+      profileData: selectedSequence === 'all' ? allSeqData : selectedSeqData,
+      allSequenceProfileData: allSeqData
+    };
+  }, [extractedResults, selectedFeature, selectedSequence]);
   
   const mockCitations = [
     { title: 'The effective number of codons used in a gene', authors: 'Wright F.', year: 1990, journal: 'Gene', doi: '10.1016/0378-1119(90)90491-9' },
@@ -894,7 +923,7 @@ export default function AnalysisPlayground() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    {profileData.length === 0 ? (
+                    {allSequenceProfileData.length === 0 ? (
                       <div className="h-80 flex items-center justify-center text-muted-foreground">
                         <div className="text-center">
                           <p className="text-sm">No windowed data available</p>
@@ -904,7 +933,7 @@ export default function AnalysisPlayground() {
                     ) : (
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={profileData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                        <ComposedChart data={allSequenceProfileData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
                           <defs>
                             <linearGradient id="quantile95" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#0891b2" stopOpacity={0.15} />
@@ -921,12 +950,14 @@ export default function AnalysisPlayground() {
                             tickLine={false}
                             axisLine={{ stroke: "#cbd5e1" }}
                             tick={{ fill: "#64748b", fontSize: 11 }}
+                            label={{ value: "Position (nt)", position: "insideBottom", offset: -10, fill: "#64748b", fontSize: 11 }}
                           />
                           <YAxis 
                             tickLine={false}
                             axisLine={{ stroke: "#cbd5e1" }}
                             tick={{ fill: "#64748b", fontSize: 11 }}
-                            domain={[0, 1]}
+                            domain={['auto', 'auto']}
+                            label={{ value: currentFeature?.name || selectedFeature, angle: -90, position: "insideLeft", fill: "#64748b", fontSize: 11 }}
                           />
                           <Tooltip 
                             contentStyle={{ 
@@ -936,6 +967,17 @@ export default function AnalysisPlayground() {
                               boxShadow: "0 4px 6px -1px rgba(0,0,0,0.07)"
                             }}
                             labelFormatter={(value) => `Position ${value} nt`}
+                            formatter={(value: number, name: string) => {
+                              const labels: Record<string, string> = {
+                                q95: '95th percentile',
+                                q75: '75th percentile',
+                                q50: 'Median',
+                                q25: '25th percentile',
+                                q5: '5th percentile',
+                                selectedValue: 'Selected sequence'
+                              };
+                              return [typeof value === 'number' ? value.toFixed(3) : value, labels[name] || name];
+                            }}
                           />
                           
                           {/* Outer quantile band (5-95%) */}
@@ -956,25 +998,29 @@ export default function AnalysisPlayground() {
                             isAnimationActive={false}
                           />
                           
-                          {/* Median line */}
+                          {/* Median line (all sequences) */}
                           <Line 
                             type="monotone" 
                             dataKey="q50" 
                             stroke="#0891b2" 
-                            strokeWidth={2.5}
+                            strokeWidth={2}
+                            strokeDasharray={selectedSequence !== "all" ? "5 5" : "0"}
                             dot={false}
                             isAnimationActive={false}
+                            name="q50"
                           />
                           
-                          {/* Selected sequence line (if individual) */}
-                          {selectedSequence !== "all" && (
+                          {/* Selected sequence line - overlaid with its own data */}
+                          {selectedSequence !== "all" && profileData.length > 0 && (
                             <Line 
                               type="monotone" 
+                              data={profileData}
                               dataKey="value" 
                               stroke="#10b981" 
-                              strokeWidth={2}
+                              strokeWidth={2.5}
                               dot={false}
                               isAnimationActive={false}
+                              name="selectedValue"
                             />
                           )}
                         </ComposedChart>
@@ -983,26 +1029,26 @@ export default function AnalysisPlayground() {
                     )}
                     
                     {/* Legend */}
-                    {profileData.length > 0 && (
-                    <div className="flex items-center justify-center gap-6 mt-4 text-sm text-muted-foreground">
+                    {allSequenceProfileData.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-center gap-4 mt-4 text-sm text-muted-foreground">
+                      {selectedSequence !== "all" && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-0.5 bg-emerald-500" style={{ height: '2.5px' }} />
+                          <span className="font-medium text-emerald-700">Selected sequence</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-0.5 bg-ocean-500" />
-                        <span>Median (50%)</span>
+                        <div className={`w-8 h-0.5 bg-ocean-500 ${selectedSequence !== "all" ? "border-dashed" : ""}`} style={{ borderStyle: selectedSequence !== "all" ? 'dashed' : 'solid', height: '2px' }} />
+                        <span>Median (all sequences)</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 bg-ocean-500/20 rounded" />
-                        <span>25-75% quantile</span>
+                        <span>25-75%</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 bg-ocean-500/10 rounded" />
-                        <span>5-95% quantile</span>
+                        <span>5-95%</span>
                       </div>
-                      {selectedSequence !== "all" && (
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-0.5 bg-emerald-500" />
-                          <span>Selected sequence</span>
-                        </div>
-                      )}
                     </div>
                     )}
                   </CardContent>
@@ -1103,17 +1149,17 @@ export default function AnalysisPlayground() {
                           />
                           
                           {/* Marker for selected sequence */}
-                          {selectedSequence !== "all" && (
+                          {selectedSequence !== "all" && selectedSequenceValue !== null && (
                             <ReferenceLine 
-                              x="0.62" 
+                              x={selectedSequenceValue.toFixed(3)} 
                               stroke="hsl(192 70% 35%)" 
-                              strokeWidth={2}
-                              strokeDasharray="5 5"
+                              strokeWidth={2.5}
                               label={{ 
-                                value: "Selected", 
+                                value: `Selected: ${selectedSequenceValue.toFixed(3)}`, 
                                 position: "top",
                                 fill: "hsl(192 70% 35%)",
-                                fontSize: 12
+                                fontSize: 11,
+                                fontWeight: 600
                               }}
                             />
                           )}
@@ -1140,19 +1186,50 @@ export default function AnalysisPlayground() {
                       const min = values[0];
                       const max = values[values.length - 1];
                       
+                      // Compute percentile rank for selected sequence
+                      let selectedPercentile: number | null = null;
+                      if (selectedSequenceValue !== null) {
+                        const rank = values.filter(v => v <= selectedSequenceValue).length;
+                        selectedPercentile = Math.round((rank / values.length) * 100);
+                      }
+                      
                       return (
-                        <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t border-slate-200">
-                          {[
-                            { label: "Mean", value: mean.toFixed(3) },
-                            { label: "Median", value: median.toFixed(3) },
-                            { label: "Std Dev", value: stdDev.toFixed(3) },
-                            { label: "Range", value: `${min.toFixed(2)} - ${max.toFixed(2)}` },
-                          ].map((stat) => (
-                            <div key={stat.label} className="text-center">
-                              <p className="text-sm text-muted-foreground">{stat.label}</p>
-                              <p className="font-semibold font-mono">{stat.value}</p>
+                        <div className="space-y-4 mt-6 pt-4 border-t border-slate-200">
+                          {/* Selected sequence highlight */}
+                          {selectedSequence !== "all" && selectedSequenceValue !== null && (
+                            <div className="bg-ocean-50 border border-ocean-200 rounded-lg p-3 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-1 h-10 bg-ocean-500 rounded-full" />
+                                <div>
+                                  <p className="text-sm font-medium text-ocean-900">Selected Sequence</p>
+                                  <p className="text-xs text-ocean-600">
+                                    {sequenceOptions.find(s => s.id === selectedSequence)?.name || selectedSequence}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold font-mono text-ocean-700">{selectedSequenceValue.toFixed(3)}</p>
+                                <p className="text-xs text-ocean-600">
+                                  {selectedPercentile !== null && `${selectedPercentile}th percentile`}
+                                </p>
+                              </div>
                             </div>
-                          ))}
+                          )}
+                          
+                          {/* Distribution stats */}
+                          <div className="grid grid-cols-4 gap-4">
+                            {[
+                              { label: "Mean", value: mean.toFixed(3) },
+                              { label: "Median", value: median.toFixed(3) },
+                              { label: "Std Dev", value: stdDev.toFixed(3) },
+                              { label: "Range", value: `${min.toFixed(2)} - ${max.toFixed(2)}` },
+                            ].map((stat) => (
+                              <div key={stat.label} className="text-center">
+                                <p className="text-sm text-muted-foreground">{stat.label}</p>
+                                <p className="font-semibold font-mono">{stat.value}</p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       );
                     })()}
