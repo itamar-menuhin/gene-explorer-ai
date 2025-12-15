@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +22,7 @@ import { Template } from "@/hooks/useTemplates";
 import { StartWindowConfigPanel } from "@/components/analysis/StartWindowConfigPanel";
 import { EndWindowConfigPanel } from "@/components/analysis/EndWindowConfigPanel";
 import { FEATURE_PANELS, type WindowConfig, type SingleWindowConfig, type FeaturePanelConfig } from "@/types/featureExtraction";
+import { usePanels } from "@/hooks/usePanels";
 
 type Step = "hypothesis" | "upload" | "panels" | "configure";
 
@@ -34,30 +35,6 @@ interface Panel {
   cost: "low" | "medium" | "high";
   features: string[];
 }
-
-// Convert FEATURE_PANELS to Panel format for display
-const convertToDisplayPanels = (): Panel[] => {
-  // Citation counts for different panel types (approximate from literature)
-  const citationMap: Record<string, number> = {
-    'sequence': 2100,
-    'chemical': 1500,
-    'codonUsage': 1240,
-    'disorder': 890,
-    'structure': 650,
-    'motif': 500,
-  };
-  
-  return FEATURE_PANELS.map(panel => ({
-    id: panel.id,
-    name: panel.name,
-    description: panel.description,
-    citations: citationMap[panel.id] || 500,
-    cost: panel.category === 'structure' || panel.category === 'regulatory' ? 'high' as const : 'low' as const,
-    features: panel.features.map(f => f.name),
-  }));
-};
-
-const availablePanels: Panel[] = convertToDisplayPanels();
 
 const costBadge = {
   low: { label: "Fast", className: "bg-emerald-100 text-emerald-700" },
@@ -85,6 +62,38 @@ export default function NewAnalysis() {
   });
   
   const { getRecommendations, loading: aiLoading } = usePanelRecommendations();
+  const { panels: dynamicPanels, loading: panelsLoading } = usePanels();
+  
+  // Convert dynamic panels to display format
+  const availablePanels: Panel[] = useMemo(() => {
+    const citationMap: Record<string, number> = {
+      'sequence': 2100,
+      'chemical': 1500,
+      'codonUsage': 1240,
+      'disorder': 890,
+      'structure': 650,
+      'motif': 500,
+    };
+    
+    // Estimate cost based on panel characteristics
+    const estimateCost = (panelId: string, features: string[]): "low" | "medium" | "high" => {
+      // High-cost panels (structure, motif analysis)
+      if (panelId === 'structure' || panelId === 'motif') return 'high';
+      // Medium-cost panels (disorder prediction)
+      if (panelId === 'disorder') return 'medium';
+      // Low-cost panels (sequence, chemical, codon usage)
+      return 'low';
+    };
+    
+    return dynamicPanels.map(panel => ({
+      id: panel.id,
+      name: panel.name,
+      description: panel.description,
+      citations: citationMap[panel.id] || 500,
+      cost: estimateCost(panel.id, panel.features),
+      features: panel.features,
+    }));
+  }, [dynamicPanels]);
 
   const handleSequencesParsed = (result: ParseResult) => {
     setParseResult(result);
@@ -351,8 +360,21 @@ export default function NewAnalysis() {
               </CardHeader>
             </Card>
 
+            {/* Panels Loading State */}
+            {panelsLoading && (
+              <Card variant="default" className="animate-pulse">
+                <CardContent className="p-6 flex items-center gap-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">Loading feature panels...</p>
+                    <p className="text-sm text-muted-foreground">Fetching available panels from backend</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* AI Loading State */}
-            {aiLoading && isGuided && (
+            {aiLoading && isGuided && !panelsLoading && (
               <Card variant="ocean" className="animate-pulse">
                 <CardContent className="p-6 flex items-center gap-4">
                   <Loader2 className="h-6 w-6 animate-spin text-ocean-600" />
@@ -364,8 +386,8 @@ export default function NewAnalysis() {
               </Card>
             )}
 
-            {/* Panel List - Use AI recommendations sorted by relevance if available, else mock panels */}
-            <div className="space-y-4">
+            {/* Panel List - Use AI recommendations sorted by relevance if available, else dynamic panels */}
+            {!panelsLoading && <div className="space-y-4">
               {(isGuided && aiRecommendations.length > 0 ? 
                 [...aiRecommendations].sort((a, b) => b.relevanceScore - a.relevanceScore).map((rec, index) => {
                   const panel = availablePanels.find(p => p.id === rec.panelId) || {
@@ -483,7 +505,7 @@ export default function NewAnalysis() {
                   </CardContent>
                 </Card>
               )))}
-            </div>
+            </div>}
 
             <div className="flex justify-between pt-4">
               <Button 

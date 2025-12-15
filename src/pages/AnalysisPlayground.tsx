@@ -241,6 +241,22 @@ export default function AnalysisPlayground() {
           setHypothesis(data?.hypothesis ?? null);
           setShareToken(data?.share_token ?? null);
           setStatus((data?.status as 'draft' | 'computing' | 'completed') ?? 'draft');
+          
+          // Load sequences from database if not passed via navigation state
+          if (data?.sequences && Array.isArray(data.sequences) && data.sequences.length > 0) {
+            setStoredSequences(data.sequences);
+            console.log(`Loaded ${data.sequences.length} sequences from database`);
+          }
+          
+          // Load window config from database
+          if (data?.window_config) {
+            setStoredWindowConfig(data.window_config);
+          }
+          
+          // Set computation ID if analysis has been computed
+          if (data?.computed_at) {
+            setComputationId(new Date(data.computed_at).getTime());
+          }
         }
       } catch (err) {
         console.error('Failed to fetch analysis:', err);
@@ -374,7 +390,7 @@ export default function AnalysisPlayground() {
   const { state: progressState, startComputation, stopComputation, resetComputation } = 
     useComputationProgress(248, selectedPanels);
 
-  // Load cached recommendations and sequences from navigation state
+  // Load cached recommendations and sequences from navigation state (prioritize over database)
   useEffect(() => {
     const state = location.state as { 
       aiRecommendations?: PanelRecommendation[];
@@ -384,35 +400,12 @@ export default function AnalysisPlayground() {
     if (state?.aiRecommendations) {
       setCachedRecommendations(state.aiRecommendations);
     }
+    // Override sequences if passed via navigation state (takes priority)
     if (state?.sequences && state.sequences.length > 0) {
       setStoredSequences(state.sequences);
       console.log(`Loaded ${state.sequences.length} sequences from navigation state`);
     }
   }, [location.state]);
-
-  // Fetch analysis data
-  useEffect(() => {
-    async function fetchAnalysis() {
-      if (!id) return;
-      const { data } = await supabase
-        .from('analyses')
-        .select('name, share_token, status, hypothesis, computed_at')
-        .eq('id', id)
-        .maybeSingle();
-      
-      if (data) {
-        setAnalysisName(data.name);
-        setShareToken(data.share_token);
-        setHypothesis(data.hypothesis);
-        setStatus(data.status as 'draft' | 'computing' | 'completed');
-        // Only set computationId if there's an actual computation
-        if (data.computed_at) {
-          setComputationId(new Date(data.computed_at).getTime());
-        }
-      }
-    }
-    fetchAnalysis();
-  }, [id]);
 
   const handleStartComputation = async () => {
     if (!id) {
@@ -430,38 +423,10 @@ export default function AnalysisPlayground() {
       return;
     }
     
-    // Prepare panel config for extraction
-    const panelConfig: Record<string, { enabled: boolean }> = {};
-    selectedPanels.forEach(panelId => {
-      panelConfig[panelId] = { enabled: true };
-    });
-    
-    // Check if we have sequences to process
-    if (storedSequences.length === 0) {
-      toast({ variant: "destructive", title: "No sequences", description: "Please upload sequences first" });
-      setShowProgress(false);
-      setStatus('draft');
-      return;
-    }
+    setShowProgress(true);
+    setStatus('computing');
     
     console.log(`Starting extraction for ${storedSequences.length} sequences with panels:`, selectedPanels);
-    
-    try {
-      // Call the real extract-features edge function
-      const result = await extractFeatures(storedSequences, panelConfig);
-      
-      if (result && result.success) {
-        setExtractedResults(result);
-        setComputationId(Date.now());
-        toast({ title: "Computation complete", description: `Extracted features for ${result.results?.length || 0} sequences` });
-      } else {
-        const errorMsg = result?.errors?.[0]?.error || "Unknown error";
-        toast({ variant: "destructive", title: "Extraction failed", description: errorMsg });
-      }
-    } catch (err) {
-      console.error('Feature extraction error:', err);
-      toast({ variant: "destructive", title: "Extraction failed", description: err instanceof Error ? err.message : "Unknown error" });
-    }
     
     try {
       // Prepare panel configuration
@@ -488,6 +453,7 @@ export default function AnalysisPlayground() {
           })
           .eq('id', id);
         
+        setExtractedResults(result);
         setStatus('completed');
         setComputationId(Date.now());
         setRealAnalysisData((prev: any) => ({ ...prev, results: result }));
@@ -505,23 +471,22 @@ export default function AnalysisPlayground() {
       
       await supabase.from('analyses')
         .update({ 
-          status: 'completed', 
-          computed_at: new Date().toISOString(),
+          status: 'draft',
+          computed_at: null,
           selected_panels: selectedPanels 
         })
         .eq('id', id);
       
       setStatus('draft');
-      setShowProgress(false);
       
       toast({ 
         variant: "destructive", 
         title: "Computation failed", 
         description: errorMessage 
       });
+    } finally {
+      setShowProgress(false);
     }
-    setStatus('completed');
-    setShowProgress(false);
   };
 
   const handleStopComputation = () => {
